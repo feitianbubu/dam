@@ -1,10 +1,11 @@
 package initialize
 
 import (
+	"github.com/flipped-aurora/gin-vue-admin/server/docs"
 	"net/http"
 	"os"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/docs"
+	"github.com/flipped-aurora/gin-vue-admin/server/docs/oas"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/middleware"
 	"github.com/flipped-aurora/gin-vue-admin/server/router"
@@ -61,9 +62,10 @@ func Routers() *gin.Engine {
 	// VUE_APP_BASE_API = /
 	// VUE_APP_BASE_PATH = http://localhost
 	// 然后执行打包命令 npm run build。在打开下面3行注释
-	// Router.StaticFile("/favicon.ico", "./dist/favicon.ico")
-	// Router.Static("/assets", "./dist/assets")   // dist里面的静态资源
-	// Router.StaticFile("/", "./dist/index.html") // 前端网页入口页面
+	//Router.StaticFile("/favicon.ico", "./dist/favicon.ico")
+	//Router.Static("/assets", "./dist/assets")   // dist里面的静态资源z
+	//Router.StaticFile("/", "./dist/index.html") // 前端网页入口页面
+	Router.Static("/swag", "./dist/swag")
 
 	Router.StaticFS(global.GVA_CONFIG.Local.StorePath, justFilesFilesystem{http.Dir(global.GVA_CONFIG.Local.StorePath)}) // Router.Use(middleware.LoadTls())  // 如果需要使用https 请打开此中间件 然后前往 core/server.go 将启动模式 更变为 Router.RunTLS("端口","你的cre/pem文件","你的key文件")
 	// 跨域，如需跨域可以打开下面的注释
@@ -72,7 +74,9 @@ func Routers() *gin.Engine {
 	// global.GVA_LOG.Info("use middleware cors")
 	docs.SwaggerInfo.BasePath = global.GVA_CONFIG.System.RouterPrefix
 	Router.GET(global.GVA_CONFIG.System.RouterPrefix+"/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	global.GVA_LOG.Info("register swagger handler")
+	oas.SwaggerInfoswag.BasePath = global.GVA_CONFIG.System.RouterPrefix
+	//Router.GET(global.GVA_CONFIG.System.RouterPrefix+"/swag/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.InstanceName("swag")))
+	//global.GVA_LOG.Info("register swagger handler")
 	// 方便统一添加路由组前缀 多服务器上线使用
 
 	PublicGroup := Router.Group(global.GVA_CONFIG.System.RouterPrefix)

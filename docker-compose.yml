@@ -1,0 +1,13 @@
+services:
+  dam:
+    image: skynono/dam:latest
+    container_name: dam
+    ports:
+      - "8888:8888"
+      - "81:80"
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - ./config.yaml:/app/config.release.yaml
+      - ./uploads:/app/uploads
+    restart: unless-stopped

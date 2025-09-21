@@ -1,0 +1,1740 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Coze Studio Knowledge Base API",
+    "description": "Comprehensive API documentation for Coze Studio Knowledge Base management. This API provides endpoints for managing knowledge bases, documents, and slices.\n\n## Authentication\nAll endpoints require authentication. Include authentication headers in your requests.\n\n## Base URL\n- Development: `https://coze.clinx.work`\n- Production: Configure according to your deployment\n\n## Features\n- Knowledge base CRUD operations\n- Document upload and management (Text, Table, Image formats)\n- Document processing and segmentation\n- Photo management with caption support\n- Table schema validation and management\n- Document slicing and chunking strategies",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Coze Studio API Support",
+      "url": "https://github.com/coze-dev/coze-studio"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://coze.clinx.work",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:8888",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/knowledge/create": {
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Create a new knowledge base",
+        "description": "Creates a new knowledge base with specified configuration",
+        "operationId": "createKnowledgeBase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDatasetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge base created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/knowledge/list": {
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "List knowledge bases",
+        "description": "Retrieve a paginated list of knowledge bases with optional filtering",
+        "operationId": "listKnowledgeBases",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListDatasetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge bases retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDatasetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/detail": {
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Get knowledge base details",
+        "description": "Retrieve detailed information for specific knowledge bases",
+        "operationId": "getKnowledgeBaseDetails",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetDetailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge base details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/update": {
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Update knowledge base",
+        "description": "Update knowledge base metadata and configuration",
+        "operationId": "updateKnowledgeBase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDatasetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge base updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateDatasetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/delete": {
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Delete knowledge base",
+        "description": "Soft delete a knowledge base",
+        "operationId": "deleteKnowledgeBase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDatasetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge base deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteDatasetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/create": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "Upload and create documents",
+        "description": "Upload documents to a knowledge base. Supports multiple formats: Text documents (PDF, DOC, TXT, etc.), Table documents (Excel, CSV), Image documents (JPG, PNG, etc.). Documents can be uploaded via local file upload (tos_uri), Base64 encoded content, Custom raw content, or ImageX URI",
+        "operationId": "createDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/list": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "List documents",
+        "description": "Retrieve documents in a knowledge base with pagination and filtering",
+        "operationId": "listDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/update": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "Update document",
+        "description": "Update document metadata and table structure",
+        "operationId": "updateDocument",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/delete": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "Delete documents",
+        "description": "Delete multiple documents from knowledge base",
+        "operationId": "deleteDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/progress/get": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "Get document processing progress",
+        "description": "Check the processing status and progress of uploaded documents",
+        "operationId": "getDocumentProgress",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetDocumentProgressRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document progress retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDocumentProgressResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/document/resegment": {
+      "post": {
+        "tags": ["Documents"],
+        "summary": "Re-segment documents",
+        "description": "Re-process documents with new chunking and parsing strategies",
+        "operationId": "resegmentDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResegmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents re-segmented successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResegmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/photo/list": {
+      "post": {
+        "tags": ["Photos"],
+        "summary": "List photos",
+        "description": "Retrieve photos in an image knowledge base with filtering options",
+        "operationId": "listPhotos",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Photos retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPhotoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/photo/detail": {
+      "post": {
+        "tags": ["Photos"],
+        "summary": "Get photo details",
+        "description": "Retrieve detailed information for specific photos",
+        "operationId": "getPhotoDetails",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoDetailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Photo details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/photo/caption": {
+      "post": {
+        "tags": ["Photos"],
+        "summary": "Update photo caption",
+        "description": "Update the description/caption of a photo",
+        "operationId": "updatePhotoCaption",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePhotoCaptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Photo caption updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatePhotoCaptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/photo/extract_caption": {
+      "post": {
+        "tags": ["Photos"],
+        "summary": "Extract photo caption using AI",
+        "description": "Automatically generate caption for a photo using AI vision models",
+        "operationId": "extractPhotoCaption",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractPhotoCaptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Photo caption extracted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractPhotoCaptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/table_schema/get": {
+      "post": {
+        "tags": ["Table Schema"],
+        "summary": "Get table schema",
+        "description": "Retrieve table structure and preview data for uploaded table files",
+        "operationId": "getTableSchema",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetTableSchemaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table schema retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTableSchemaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/table_schema/validate": {
+      "post": {
+        "tags": ["Table Schema"],
+        "summary": "Validate table schema",
+        "description": "Validate if table schema matches the uploaded file structure",
+        "operationId": "validateTableSchema",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateTableSchemaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table schema validation completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateTableSchemaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/icon/get": {
+      "post": {
+        "tags": ["Utilities"],
+        "summary": "Get default icon",
+        "description": "Get default icon for knowledge base based on format type",
+        "operationId": "getKnowledgeIcon",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetIconRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Icon retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetIconResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateDatasetRequest": {
+        "type": "object",
+        "required": ["name", "space_id", "format_type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Knowledge base name",
+            "example": "Product Documentation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Knowledge base description",
+            "example": "Complete product documentation and user guides"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Space ID where the knowledge base belongs",
+            "example": "1234567890"
+          },
+          "icon_uri": {
+            "type": "string",
+            "description": "Custom icon URI for the knowledge base",
+            "example": "tos://bucket/path/to/icon.png"
+          },
+          "format_type": {
+            "$ref": "#/components/schemas/FormatType"
+          },
+          "biz_id": {
+            "type": "string",
+            "description": "Business identity for third-party integration (pass 0 for Coze)",
+            "example": "0"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID",
+            "example": "9876543210"
+          }
+        }
+      },
+      "CreateDatasetResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "dataset_id": {
+                "type": "string",
+                "description": "Created knowledge base ID",
+                "example": "1122334455"
+              }
+            }
+          }
+        ]
+      },
+      "ListDatasetRequest": {
+        "type": "object",
+        "required": ["space_id"],
+        "properties": {
+          "filter": {"$ref": "#/components/schemas/DatasetFilter"},
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1,
+            "description": "Page number",
+            "example": 1
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size",
+            "example": 20
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Space ID",
+            "example": "1234567890"
+          },
+          "order_field": {"$ref": "#/components/schemas/OrderField"},
+          "order_type": {"$ref": "#/components/schemas/OrderType"},
+          "space_auth": {
+            "type": "string",
+            "description": "Space authorization token"
+          },
+          "biz_id": {
+            "type": "string",
+            "description": "Business identity for third-party access"
+          },
+          "need_ref_bots": {
+            "type": "boolean",
+            "description": "Whether to include reference bot count",
+            "default": false
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project ID filter"
+          }
+        }
+      },
+      "ListDatasetResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "dataset_list": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Dataset"}
+              },
+              "total": {
+                "type": "integer",
+                "description": "Total count of knowledge bases",
+                "example": 42
+              }
+            }
+          }
+        ]
+      },
+      "CreateDocumentRequest": {
+        "type": "object",
+        "required": ["dataset_id", "format_type", "document_bases"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID to upload documents to",
+            "example": "1122334455"
+          },
+          "format_type": {"$ref": "#/components/schemas/FormatType"},
+          "document_bases": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DocumentBase"},
+            "description": "Documents to be created"
+          },
+          "chunk_strategy": {"$ref": "#/components/schemas/ChunkStrategy"},
+          "is_append": {
+            "type": "boolean",
+            "description": "Whether to append content to existing document",
+            "default": false
+          },
+          "parsing_strategy": {"$ref": "#/components/schemas/ParsingStrategy"}
+        }
+      },
+      "CreateDocumentResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "document_infos": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DocumentInfo"}
+              }
+            }
+          }
+        ]
+      },
+      "DocumentBase": {
+        "type": "object",
+        "required": ["name", "source_info"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Document name",
+            "example": "User Manual v2.1"
+          },
+          "source_info": {"$ref": "#/components/schemas/SourceInfo"},
+          "table_meta": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/TableColumn"}
+          },
+          "table_sheet": {"$ref": "#/components/schemas/TableSheet"},
+          "filter_strategy": {"$ref": "#/components/schemas/FilterStrategy"},
+          "caption": {
+            "type": "string",
+            "description": "Image description for manual annotation"
+          }
+        }
+      },
+      "SourceInfo": {
+        "type": "object",
+        "properties": {
+          "tos_uri": {
+            "type": "string",
+            "description": "TOS URI for uploaded file",
+            "example": "tos://bucket/documents/manual.pdf"
+          },
+          "document_source": {"$ref": "#/components/schemas/DocumentSource"},
+          "custom_content": {
+            "type": "string",
+            "description": "Raw content for custom documents"
+          },
+          "file_base64": {
+            "type": "string",
+            "description": "Base64 encoded file content"
+          },
+          "file_type": {
+            "type": "string",
+            "description": "File type extension",
+            "example": "PDF"
+          },
+          "imagex_uri": {
+            "type": "string",
+            "description": "ImageX URI"
+          }
+        }
+      },
+      "FormatType": {
+        "type": "integer",
+        "enum": [0, 1, 2, 3],
+        "description": "Knowledge base format type: 0=Text, 1=Table, 2=Images, 3=Database",
+        "example": 0
+      },
+      "DocumentStatus": {
+        "type": "integer",
+        "enum": [0, 1, 2, 3, 4, 5, 9],
+        "description": "Document processing status: 0=Processing, 1=Ready, 2=Disabled, 3=Deleted, 4=Re-segmenting, 5=Refreshing, 9=Failed",
+        "example": 1
+      },
+      "DocumentSource": {
+        "type": "integer",
+        "enum": [0, 2],
+        "description": "Document source type: 0=Local file upload, 2=Custom content",
+        "example": 0
+      },
+      "ChunkStrategy": {
+        "type": "object",
+        "properties": {
+          "separator": {
+            "type": "string",
+            "description": "Text separator",
+            "example": "."
+          },
+          "max_tokens": {
+            "type": "string",
+            "description": "Maximum tokens per chunk",
+            "example": "1000"
+          },
+          "remove_extra_spaces": {
+            "type": "boolean",
+            "description": "Remove consecutive spaces",
+            "default": true
+          },
+          "remove_urls_emails": {
+            "type": "boolean",
+            "description": "Remove URLs and emails",
+            "default": false
+          },
+          "chunk_type": {"$ref": "#/components/schemas/ChunkType"},
+          "caption_type": {"$ref": "#/components/schemas/CaptionType"},
+          "overlap": {
+            "type": "string",
+            "description": "Overlap between chunks",
+            "example": "100"
+          },
+          "max_level": {
+            "type": "string",
+            "description": "Maximum hierarchy levels",
+            "example": "3"
+          },
+          "save_title": {
+            "type": "boolean",
+            "description": "Preserve level headers",
+            "default": true
+          }
+        }
+      },
+      "ChunkType": {
+        "type": "integer",
+        "enum": [0, 1, 2],
+        "description": "Chunking strategy: 0=Default, 1=Custom, 2=Level-based",
+        "example": 0
+      },
+      "CaptionType": {
+        "type": "integer",
+        "enum": [0, 1],
+        "description": "Caption annotation: 0=Automatic, 1=Manual",
+        "example": 0
+      },
+      "ParsingStrategy": {
+        "type": "object",
+        "properties": {
+          "parsing_type": {"$ref": "#/components/schemas/ParsingType"},
+          "image_extraction": {
+            "type": "boolean",
+            "description": "Enable image element extraction",
+            "default": false
+          },
+          "table_extraction": {
+            "type": "boolean",
+            "description": "Enable table element extraction",
+            "default": false
+          },
+          "image_ocr": {
+            "type": "boolean",
+            "description": "Enable image OCR",
+            "default": false
+          }
+        }
+      },
+      "ParsingType": {
+        "type": "integer",
+        "enum": [0, 1],
+        "description": "Parsing strategy: 0=Fast parsing, 1=Accurate parsing",
+        "example": 1
+      },
+      "FilterStrategy": {
+        "type": "object",
+        "properties": {
+          "filter_page": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "Page numbers to filter out",
+            "example": [1, 2, 5]
+          }
+        }
+      },
+      "TableColumn": {
+        "type": "object",
+        "required": ["id", "column_name", "is_semantic", "sequence"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Column ID",
+            "example": "1"
+          },
+          "column_name": {
+            "type": "string",
+            "description": "Column name",
+            "example": "Product Name"
+          },
+          "is_semantic": {
+            "type": "boolean",
+            "description": "Whether this is a semantically matched column",
+            "example": true
+          },
+          "sequence": {
+            "type": "string",
+            "description": "Original sequence number",
+            "example": "1"
+          },
+          "column_type": {"$ref": "#/components/schemas/ColumnType"},
+          "contains_empty_value": {
+            "type": "boolean",
+            "description": "Whether column contains empty values"
+          },
+          "desc": {
+            "type": "string",
+            "description": "Column description"
+          }
+        }
+      },
+      "TableSheet": {
+        "type": "object",
+        "required": ["sheet_id", "header_line_idx", "start_line_idx"],
+        "properties": {
+          "sheet_id": {
+            "type": "string",
+            "description": "Sheet ID",
+            "example": "0"
+          },
+          "header_line_idx": {
+            "type": "string",
+            "description": "Header row index",
+            "example": "0"
+          },
+          "start_line_idx": {
+            "type": "string",
+            "description": "Data start row index",
+            "example": "1"
+          }
+        }
+      },
+      "ColumnType": {
+        "type": "integer",
+        "enum": [0, 1, 2, 3, 4, 5, 6],
+        "description": "Column data type: 0=Unknown, 1=Text, 2=Number, 3=Date, 4=Float, 5=Boolean, 6=Image",
+        "example": 1
+      },
+      "OrderField": {
+        "type": "integer",
+        "enum": [1, 2],
+        "description": "Sort field: 1=Create time, 2=Update time",
+        "example": 2
+      },
+      "OrderType": {
+        "type": "integer",
+        "enum": [1, 2],
+        "description": "Sort order: 1=Descending, 2=Ascending",
+        "example": 1
+      },
+      "Dataset": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID",
+            "example": "1122334455"
+          },
+          "name": {
+            "type": "string",
+            "description": "Knowledge base name",
+            "example": "Product Documentation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Knowledge base description"
+          },
+          "file_list": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of file names"
+          },
+          "all_file_size": {
+            "type": "string",
+            "description": "Total size of all files in bytes",
+            "example": "1048576"
+          },
+          "bot_used_count": {
+            "type": "integer",
+            "description": "Number of bots using this knowledge base",
+            "example": 3
+          },
+          "status": {"$ref": "#/components/schemas/DatasetStatus"},
+          "processing_file_list": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Files currently being processed"
+          },
+          "failed_file_list": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Files that failed processing"
+          },
+          "update_time": {
+            "type": "integer",
+            "description": "Last update timestamp (seconds)",
+            "example": 1704067200
+          },
+          "create_time": {
+            "type": "integer",
+            "description": "Creation timestamp (seconds)",
+            "example": 1704067200
+          },
+          "icon_url": {"type": "string"},
+          "icon_uri": {"type": "string"},
+          "can_edit": {
+            "type": "boolean",
+            "description": "Whether the knowledge base can be edited",
+            "example": true
+          },
+          "creator_id": {
+            "type": "string",
+            "description": "Creator user ID",
+            "example": "9876543210"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Space ID",
+            "example": "1234567890"
+          },
+          "project_id": {"type": "string"},
+          "format_type": {"$ref": "#/components/schemas/FormatType"},
+          "slice_count": {
+            "type": "integer",
+            "description": "Number of text segments",
+            "example": 127
+          },
+          "hit_count": {
+            "type": "integer",
+            "description": "Total hit count",
+            "example": 256
+          },
+          "doc_count": {
+            "type": "integer",
+            "description": "Number of documents",
+            "example": 5
+          },
+          "chunk_strategy": {"$ref": "#/components/schemas/ChunkStrategy"}
+        }
+      },
+      "DatasetStatus": {
+        "type": "integer",
+        "enum": [0, 1, 2, 3, 9],
+        "description": "Knowledge base status: 0=Processing, 1=Ready, 2=Deleted, 3=Forbidden, 9=Failed",
+        "example": 1
+      },
+      "DocumentInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Document name",
+            "example": "Installation Guide.pdf"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Document ID",
+            "example": "2233445566"
+          },
+          "tos_uri": {"type": "string"},
+          "create_time": {
+            "type": "integer",
+            "description": "Creation timestamp",
+            "example": 1704067200
+          },
+          "update_time": {
+            "type": "integer",
+            "description": "Last update timestamp",
+            "example": 1704067200
+          },
+          "creator_id": {
+            "type": "string",
+            "description": "Creator user ID",
+            "example": "9876543210"
+          },
+          "slice_count": {
+            "type": "integer",
+            "description": "Number of text segments",
+            "example": 23
+          },
+          "type": {
+            "type": "string",
+            "description": "File extension",
+            "example": "pdf"
+          },
+          "size": {
+            "type": "integer",
+            "description": "File size in bytes",
+            "example": 204800
+          },
+          "char_count": {
+            "type": "integer",
+            "description": "Character count",
+            "example": 12450
+          },
+          "status": {"$ref": "#/components/schemas/DocumentStatus"},
+          "hit_count": {
+            "type": "integer",
+            "description": "Hit count",
+            "example": 89
+          },
+          "source_type": {"$ref": "#/components/schemas/DocumentSource"},
+          "format_type": {"$ref": "#/components/schemas/FormatType"},
+          "table_meta": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/TableColumn"}
+          },
+          "web_url": {"type": "string"},
+          "status_descript": {"type": "string"},
+          "space_id": {"type": "string"},
+          "editable_append_content": {"type": "boolean"},
+          "chunk_strategy": {"$ref": "#/components/schemas/ChunkStrategy"},
+          "imagex_uri": {"type": "string"},
+          "parsing_strategy": {"$ref": "#/components/schemas/ParsingStrategy"},
+          "filter_strategy": {"$ref": "#/components/schemas/FilterStrategy"}
+        }
+      },
+      "DatasetDetailRequest": {
+        "type": "object",
+        "required": ["dataset_ids", "space_id"],
+        "properties": {
+          "dataset_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of knowledge base IDs",
+            "example": ["1122334455", "2233445566"]
+          },
+          "project_id": {"type": "string"},
+          "space_id": {
+            "type": "string",
+            "description": "Space ID",
+            "example": "1234567890"
+          }
+        }
+      },
+      "DatasetDetailResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "dataset_details": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/components/schemas/Dataset"}
+              }
+            }
+          }
+        ]
+      },
+      "DatasetFilter": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Keyword search",
+            "example": "documentation"
+          },
+          "dataset_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "source_type": {"$ref": "#/components/schemas/DatasetSource"},
+          "scope_type": {"$ref": "#/components/schemas/DatasetScopeType"},
+          "format_type": {"$ref": "#/components/schemas/FormatType"}
+        }
+      },
+      "DatasetSource": {
+        "type": "integer",
+        "enum": [1, 2],
+        "description": "Dataset source: 1=Self-created, 2=From explore",
+        "example": 1
+      },
+      "DatasetScopeType": {
+        "type": "integer",
+        "enum": [1, 2],
+        "description": "Search scope: 1=All datasets, 2=Own datasets only",
+        "example": 1
+      },
+      "UpdateDatasetRequest": {
+        "type": "object",
+        "required": ["dataset_id", "name"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID to update",
+            "example": "1122334455"
+          },
+          "name": {
+            "type": "string",
+            "description": "Updated knowledge base name",
+            "example": "Updated Product Documentation"
+          },
+          "icon_uri": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {"$ref": "#/components/schemas/DatasetStatus"}
+        }
+      },
+      "UpdateDatasetResponse": {
+        "$ref": "#/components/schemas/BaseResponse"
+      },
+      "DeleteDatasetRequest": {
+        "type": "object",
+        "required": ["dataset_id"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID to delete",
+            "example": "1122334455"
+          }
+        }
+      },
+      "DeleteDatasetResponse": {
+        "$ref": "#/components/schemas/BaseResponse"
+      },
+      "ListDocumentRequest": {
+        "type": "object",
+        "required": ["dataset_id"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID",
+            "example": "1122334455"
+          },
+          "document_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search keyword for document names"
+          }
+        }
+      },
+      "ListDocumentResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "document_infos": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DocumentInfo"}
+              },
+              "total": {
+                "type": "integer",
+                "description": "Total count of documents",
+                "example": 15
+              }
+            }
+          }
+        ]
+      },
+      "UpdateDocumentRequest": {
+        "type": "object",
+        "required": ["document_id"],
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document ID to update",
+            "example": "2233445566"
+          },
+          "document_name": {"type": "string"},
+          "table_meta": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/TableColumn"}
+          }
+        }
+      },
+      "UpdateDocumentResponse": {
+        "$ref": "#/components/schemas/BaseResponse"
+      },
+      "DeleteDocumentRequest": {
+        "type": "object",
+        "required": ["document_ids"],
+        "properties": {
+          "document_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of document IDs to delete",
+            "example": ["2233445566", "3344556677"]
+          }
+        }
+      },
+      "DeleteDocumentResponse": {
+        "$ref": "#/components/schemas/BaseResponse"
+      },
+      "GetDocumentProgressRequest": {
+        "type": "object",
+        "required": ["document_ids"],
+        "properties": {
+          "document_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Document IDs to check progress for",
+            "example": ["2233445566", "3344556677"]
+          }
+        }
+      },
+      "GetDocumentProgressResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DocumentProgress"}
+              }
+            }
+          }
+        ]
+      },
+      "DocumentProgress": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document ID",
+            "example": "2233445566"
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Processing progress percentage",
+            "example": 75
+          },
+          "status": {"$ref": "#/components/schemas/DocumentStatus"},
+          "status_descript": {"type": "string"},
+          "document_name": {"type": "string"},
+          "remaining_time": {
+            "type": "string",
+            "description": "Estimated remaining time in seconds",
+            "example": "120"
+          },
+          "size": {"type": "string"},
+          "type": {"type": "string"},
+          "url": {"type": "string"}
+        }
+      },
+      "ResegmentRequest": {
+        "type": "object",
+        "required": ["dataset_id", "document_ids", "chunk_strategy"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Knowledge base ID",
+            "example": "1122334455"
+          },
+          "document_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Documents to re-segment",
+            "example": ["2233445566", "3344556677"]
+          },
+          "chunk_strategy": {"$ref": "#/components/schemas/ChunkStrategy"},
+          "parsing_strategy": {"$ref": "#/components/schemas/ParsingStrategy"},
+          "filter_strategy": {"$ref": "#/components/schemas/FilterStrategy"}
+        }
+      },
+      "ResegmentResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "document_infos": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DocumentInfo"}
+              }
+            }
+          }
+        ]
+      },
+      "ListPhotoRequest": {
+        "type": "object",
+        "required": ["dataset_id"],
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Image knowledge base ID",
+            "example": "1122334455"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "filter": {"$ref": "#/components/schemas/PhotoFilter"}
+        }
+      },
+      "PhotoFilter": {
+        "type": "object",
+        "properties": {
+          "has_caption": {
+            "type": "boolean",
+            "description": "Filter by caption status"
+          },
+          "keyword": {
+            "type": "string",
+            "description": "Search keyword"
+          },
+          "status": {"$ref": "#/components/schemas/DocumentStatus"}
+        }
+      },
+      "ListPhotoResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "photo_infos": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/PhotoInfo"}
+              },
+              "total": {"type": "integer"}
+            }
+          }
+        ]
+      },
+      "PhotoInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Image name",
+            "example": "product_screenshot.png"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Document ID",
+            "example": "2233445566"
+          },
+          "url": {"type": "string"},
+          "caption": {
+            "type": "string",
+            "description": "Image description",
+            "example": "Product dashboard showing analytics overview"
+          },
+          "create_time": {"type": "integer"},
+          "update_time": {"type": "integer"},
+          "creator_id": {"type": "string"},
+          "type": {
+            "type": "string",
+            "description": "Image file extension",
+            "example": "png"
+          },
+          "size": {"type": "integer"},
+          "status": {"$ref": "#/components/schemas/DocumentStatus"},
+          "source_type": {"$ref": "#/components/schemas/DocumentSource"}
+        }
+      },
+      "PhotoDetailRequest": {
+        "type": "object",
+        "required": ["document_ids", "dataset_id"],
+        "properties": {
+          "document_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "dataset_id": {"type": "string"}
+        }
+      },
+      "PhotoDetailResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "photo_infos": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/components/schemas/PhotoInfo"}
+              }
+            }
+          }
+        ]
+      },
+      "UpdatePhotoCaptionRequest": {
+        "type": "object",
+        "required": ["document_id", "caption"],
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document ID",
+            "example": "2233445566"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Updated image caption",
+            "example": "Updated product interface showing new features"
+          }
+        }
+      },
+      "UpdatePhotoCaptionResponse": {
+        "$ref": "#/components/schemas/BaseResponse"
+      },
+      "ExtractPhotoCaptionRequest": {
+        "type": "object",
+        "required": ["document_id"],
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Document ID for caption extraction",
+            "example": "2233445566"
+          }
+        }
+      },
+      "ExtractPhotoCaptionResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "caption": {
+                "type": "string",
+                "description": "AI-generated image caption",
+                "example": "A screenshot of a web application dashboard displaying charts and metrics"
+              }
+            }
+          }
+        ]
+      },
+      "GetTableSchemaRequest": {
+        "type": "object",
+        "properties": {
+          "table_sheet": {"$ref": "#/components/schemas/TableSheet"},
+          "table_data_type": {"$ref": "#/components/schemas/TableDataType"},
+          "document_id": {"type": "string"},
+          "source_file": {"$ref": "#/components/schemas/SourceInfo"},
+          "origin_table_meta": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/TableColumn"}
+          },
+          "preview_table_meta": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/TableColumn"}
+          }
+        }
+      },
+      "TableDataType": {
+        "type": "integer",
+        "enum": [0, 1, 2],
+        "description": "Table data type: 0=All data, 1=Schema only, 2=Preview only",
+        "example": 0
+      },
+      "GetTableSchemaResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "sheet_list": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DocTableSheet"}
+              },
+              "table_meta": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/TableColumn"}
+              },
+              "preview_data": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {"type": "string"}
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DocTableSheet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Sheet number",
+            "example": "0"
+          },
+          "sheet_name": {
+            "type": "string",
+            "description": "Sheet name",
+            "example": "Sheet1"
+          },
+          "total_row": {
+            "type": "string",
+            "description": "Total number of rows",
+            "example": "1000"
+          }
+        }
+      },
+      "ValidateTableSchemaRequest": {
+        "type": "object",
+        "required": ["space_id", "document_id", "source_file", "table_sheet"],
+        "properties": {
+          "space_id": {"type": "string"},
+          "document_id": {"type": "string"},
+          "source_file": {"$ref": "#/components/schemas/SourceInfo"},
+          "table_sheet": {"$ref": "#/components/schemas/TableSheet"}
+        }
+      },
+      "ValidateTableSchemaResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "column_valid_result": {
+                "type": "object",
+                "additionalProperties": {"type": "string"}
+              }
+            }
+          }
+        ]
+      },
+      "GetIconRequest": {
+        "type": "object",
+        "required": ["format_type"],
+        "properties": {
+          "format_type": {"$ref": "#/components/schemas/FormatType"}
+        }
+      },
+      "GetIconResponse": {
+        "allOf": [
+          {"$ref": "#/components/schemas/BaseResponse"},
+          {
+            "type": "object",
+            "properties": {
+              "icon": {"$ref": "#/components/schemas/Icon"}
+            }
+          }
+        ]
+      },
+      "Icon": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Icon URL",
+            "example": "https://example.com/icons/text.png"
+          },
+          "uri": {
+            "type": "string",
+            "description": "Icon URI",
+            "example": "tos://bucket/icons/text.png"
+          }
+        }
+      },
+      "BaseResponse": {
+        "type": "object",
+        "required": ["code", "msg"],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "Response status code (0 for success)",
+            "example": 0
+          },
+          "msg": {
+            "type": "string",
+            "description": "Response message",
+            "example": "success"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token authentication"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key authentication"
+      }
+    }
+  },
+  "security": [
+    {"BearerAuth": []},
+    {"ApiKeyAuth": []}
+  ],
+  "tags": [
+    {
+      "name": "Knowledge Base",
+      "description": "Knowledge base management operations"
+    },
+    {
+      "name": "Documents",
+      "description": "Document upload and management"
+    },
+    {
+      "name": "Photos",
+      "description": "Image knowledge base photo management"
+    },
+    {
+      "name": "Table Schema",
+      "description": "Table structure validation and management"
+    },
+    {
+      "name": "Utilities",
+      "description": "Utility endpoints for icons and configuration"
+    }
+  ]
+}

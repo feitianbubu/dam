@@ -1,0 +1,19 @@
+FROM golang:1.23-alpine
+
+# 安装 delve 调试器和其他依赖
+RUN apk add --no-cache git
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置 Go 环境变量
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=0
+
+# 暴露应用端口和调试端口
+EXPOSE 8888 2345
+
+# 启动脚本 - 在运行时构建二进制文件
+CMD ["sh", "-c", "cd /workspace && echo 'Building application...' && go build -gcflags='all=-N -l' -o /tmp/server . && echo 'Starting debug server...' && dlv exec /tmp/server --listen=:2345 --headless=true --api-version=2 --accept-multiclient --continue"]

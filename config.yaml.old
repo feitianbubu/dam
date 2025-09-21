@@ -1,0 +1,217 @@
+captcha:
+    key-long: 6
+    img-width: 240
+    img-height: 80
+    open-captcha: 99
+    open-captcha-timeout: 3600
+cors:
+    mode: strict-whitelist
+    whitelist:
+        - allow-origin: example1.com
+          allow-methods: POST, GET
+          allow-headers: Content-Type,AccessToken,X-CSRF-Token, Authorization, Token,X-Token,X-User-Id
+          expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+          allow-credentials: true
+        - allow-origin: example2.com
+          allow-methods: GET, POST
+          allow-headers: content-type
+          expose-headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type
+          allow-credentials: true
+jwt:
+    signing-key: 523d0bfd-31df-4152-9247-74bc67255288
+    expires-time: 7d
+    buffer-time: 1d
+    issuer: clinx
+local:
+    path: uploads/file
+    store-path: uploads/file
+minio:
+    endpoint: 14.103.224.244:9001
+    access-key-id: YJAJRqCQGAmQOXkZAA73
+    access-key-secret: 2dTGRrfJtndJLZVS9yIae0FiDz5FUY0JBFc1s070
+    bucket-name: media
+    use-ssl: false
+    base-path: ""
+    bucket-url: http://14.103.224.244:9001/media
+mysql:
+    prefix: ""
+    port: "3307"
+    config: charset=utf8mb4&parseTime=True&loc=Local
+    db-name: dam
+    username: dam
+    password: Skynono@123456
+    path: 14.103.224.244
+    engine: ""
+    log-mode: error
+    max-idle-conns: 10
+    max-open-conns: 100
+    singular: false
+    log-zap: false
+system:
+    db-type: mysql
+    oss-type: minio
+    router-prefix: ""
+    addr: 8888
+    iplimit-count: 15000
+    iplimit-time: 3600
+    use-multipoint: false
+    use-redis: false
+    use-mongo: false
+    use-strict-auth: false
+    auto-migrate: true
+zap:
+    level: debug
+    prefix: '[dam]'
+    format: console
+    director: log
+    encode-level: LowercaseColorLevelEncoder
+    stacktrace-key: stacktrace
+    show-line: true
+    log-in-console: true
+    retention-day: -1
+
+# 向量化服务配置示例
+vectorization:
+  enable: true  # 是否启用向量化服务
+  provider: "coze"  # 服务提供商: coze, openai, pinecone, weaviate
+
+  # 异步处理配置
+  async: true  # 是否异步处理向量化
+
+  # 重试配置
+  retry:
+    enable: true      # 是否启用重试
+    max_attempts: 3   # 最大重试次数
+    delay_ms: 1000   # 重试延迟（毫秒）
+    backoff_ms: 2000 # 退避延迟（毫秒）
+
+  # 队列配置（预留）
+  queue:
+    enable: false     # 是否启用队列
+    max_workers: 5    # 最大工作协程数
+    buffer_size: 100  # 队列缓冲大小
+
+  # 服务提供商特定配置
+  settings:
+    # Coze 配置
+    base_url: "https://coze.clinx.work"
+    token: "pat_446cef848519b58e13fec1a5c6e74d7179d719761b1a69663230f14cbeafa5c3"
+    space_id: "7531258672148660224"
+    default_dataset_id: "7554332118201925632"
+    timeout: 30
+
+
+file-understanding:
+    enabled: true
+    api-endpoint: "https://yunyi.99.com:3081"
+    api-key: "sk-mWKWCmxKbonK47qpG5ZkRL7lUVq8lF5XoWkDvrQfV7epAhny"
+    timeout: 300  # 秒
+
+    # 向后兼容的默认配置
+    model: "qwen-vl-max-latest"
+    max-tokens: 1000
+    temperature: 0.7
+
+    # 新的默认配置（可选，会覆盖上面的配置）
+    default:
+        model: "gemini-2.0-flash-001"
+        max-tokens: 2000
+        temperature: 0.5
+
+    # 按文件类型配置不同模型
+    type-models:
+        document:
+            model: "gpt-5-chat"
+            max-tokens: 4000
+            temperature: 0.2
+        video:
+            model: "qwen-vl-max-latest"
+            max-tokens: 8000
+            temperature: 0.4
+        audio:
+            model: "gpt-4o-transcribe"
+            max-tokens: 2000
+            temperature: 0.1
+    supported-file-types:
+        images:
+            - "jpg"
+            - "jpeg"
+            - "png"
+            - "gif"
+            - "bmp"
+            - "webp"
+            - "tiff"
+            - "tif"
+            - "svg"
+            - "ico"
+            - "heic"
+            - "heif"
+            - "avif"
+            - "jfif"
+            - "pjpeg"
+            - "pjp"
+        documents:
+            - "pdf"
+            - "txt"
+            - "md"
+            - "rtf"
+            - "odt"
+            - "pages"
+            - "xls"
+            - "xlsx"
+            - "ppt"
+            - "pptx"
+            - "csv"
+            - "json"
+            - "xml"
+            - "html"
+            - "htm"
+            - "doc"
+            - "docx"
+        videos:
+            - "mp4"
+            - "avi"
+            - "mov"
+            - "mkv"
+            - "wmv"
+            - "flv"
+            - "webm"
+            - "m4v"
+            - "3gp"
+            - "3g2"
+            - "mpg"
+            - "mpeg"
+            - "m2v"
+            - "mts"
+            - "m2ts"
+            - "ts"
+            - "vob"
+            - "ogv"
+            - "asf"
+            - "rm"
+            - "rmvb"
+            - "f4v"
+        audios:
+            - "mp3"
+            - "wav"
+            - "flac"
+            - "aac"
+            - "ogg"
+            - "oga"
+            - "wma"
+            - "m4a"
+            - "opus"
+            - "amr"
+            - "awb"
+            - "au"
+            - "aiff"
+            - "aif"
+            - "aifc"
+            - "ra"
+            - "ac3"
+            - "dts"
+            - "ape"
+            - "tak"
+            - "tta"
+            - "wv"
+

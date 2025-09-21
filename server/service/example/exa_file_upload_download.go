@@ -2,15 +2,68 @@ package example
 
 import (
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example/request"
+	"github.com/flipped-aurora/gin-vue-admin/server/pkg/vectorization"
+	"github.com/flipped-aurora/gin-vue-admin/server/service/file_understanding"
+	vectorizationService "github.com/flipped-aurora/gin-vue-admin/server/service/vectorization"
+	"github.com/flipped-aurora/gin-vue-admin/server/service/vectorization/providers/coze"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+type FileUploadAndDownloadService struct {
+	fileProcessor        file_understanding.FileProcessor
+	vectorizationService vectorization.VectorizationService
+}
+
+// GetFileProcessor 获取文件处理器，延迟初始化
+func (e *FileUploadAndDownloadService) GetFileProcessor() file_understanding.FileProcessor {
+	if e.fileProcessor == nil {
+		// 创建多模态API客户端
+		apiClient := file_understanding.NewMultimodalAPIClient()
+		// 创建文件处理器
+		e.fileProcessor = file_understanding.NewFileProcessor(apiClient)
+	}
+	return e.fileProcessor
+}
+
+// GetVectorizationService 获取向量化服务，延迟初始化
+func (e *FileUploadAndDownloadService) GetVectorizationService() vectorization.VectorizationService {
+	if e.vectorizationService == nil {
+		// 使用工厂创建向量化服务（默认使用Coze）
+		config := &vectorizationService.Config{
+			Provider: vectorization.ProviderCoze,
+			Settings: global.GVA_CONFIG.Vectorization.Settings,
+		}
+		service, err := vectorizationService.NewVectorizationService(config)
+		if err != nil {
+			global.GVA_LOG.Error("创建向量化服务失败", zap.Error(err))
+			return nil
+		}
+		e.vectorizationService = service
+	}
+	return e.vectorizationService
+}
+
+// NewFileUploadAndDownloadService 创建文件上传下载服务
+func NewFileUploadAndDownloadService() *FileUploadAndDownloadService {
+	// 创建多模态API客户端
+	apiClient := file_understanding.NewMultimodalAPIClient()
+
+	// 创建文件处理器
+	processor := file_understanding.NewFileProcessor(apiClient)
+
+	return &FileUploadAndDownloadService{
+		fileProcessor: processor,
+	}
+}
 
 //@author: [piexlmax](https://github.com/piexlmax)
 //@function: Upload
@@ -18,8 +71,8 @@ import (
 //@param: file model.ExaFileUploadAndDownload
 //@return: error
 
-func (e *FileUploadAndDownloadService) Upload(file example.ExaFileUploadAndDownload) error {
-	return global.GVA_DB.Create(&file).Error
+func (e *FileUploadAndDownloadService) Upload(file *example.ExaFileUploadAndDownload) error {
+	return global.GVA_DB.Create(file).Error
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)
@@ -101,20 +154,28 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 	}
 	s := strings.Split(header.Filename, ".")
 	f := example.ExaFileUploadAndDownload{
-		Url:     filePath,
-		Name:    header.Filename,
-		ClassId: classId,
-		Tag:     s[len(s)-1],
-		Key:     key,
+		Url:           filePath,
+		Name:          header.Filename,
+		ClassId:       classId,
+		Tag:           s[len(s)-1],
+		Key:           key,
+		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
 	}
 	if noSave == "0" {
-		// 检查是否已存在相同key的记录
-		var existingFile example.ExaFileUploadAndDownload
-		err = global.GVA_DB.Where(&example.ExaFileUploadAndDownload{Key: key}).First(&existingFile).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return f, e.Upload(f)
+		err = e.Upload(&f)
+		if err != nil {
+			return f, err
 		}
-		return f, err
+
+		// 文件上传成功后，异步处理文件理解
+		// 确保f.ID在Upload后有值
+		fileID := f.ID
+		global.GVA_LOG.Info("文件上传成功，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
+
+		// 启动异步处理，确保fileID正确传递
+		go e.ProcessFileWithRetry(fileID, 3, "自动文件处理")
+
+		return f, nil
 	}
 	return f, nil
 }
@@ -127,4 +188,142 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 
 func (e *FileUploadAndDownloadService) ImportURL(file *[]example.ExaFileUploadAndDownload) error {
 	return global.GVA_DB.Create(&file).Error
+}
+
+// GetFileWithMetadata 获取文件及其元数据
+func (e *FileUploadAndDownloadService) GetFileWithMetadata(id uint) (example.ExaFileUploadAndDownload, error) {
+	var file example.ExaFileUploadAndDownload
+	err := global.GVA_DB.Where("id = ?", id).First(&file).Error
+	return file, err
+}
+
+// RetryFileProcessing 重试文件处理
+func (e *FileUploadAndDownloadService) RetryFileProcessing(id uint) error {
+	processor := e.GetFileProcessor()
+	return processor.RetryProcessFile(id)
+}
+
+// GetFilesByProcessStatus 根据处理状态获取文件列表
+func (e *FileUploadAndDownloadService) GetFilesByProcessStatus(status string, pageInfo request.ExaAttachmentCategorySearch) (list []example.ExaFileUploadAndDownload, total int64, err error) {
+	limit := pageInfo.PageSize
+	offset := pageInfo.PageSize * (pageInfo.Page - 1)
+	db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).Where("process_status = ?", status)
+
+	if len(pageInfo.Keyword) > 0 {
+		db = db.Where("name LIKE ?", "%"+pageInfo.Keyword+"%")
+	}
+
+	if pageInfo.ClassId > 0 {
+		db = db.Where("class_id = ?", pageInfo.ClassId)
+	}
+
+	err = db.Count(&total).Error
+	if err != nil {
+		return
+	}
+	err = db.Limit(limit).Offset(offset).Order("id desc").Find(&list).Error
+	return list, total, err
+}
+
+// searchDocumentIDsByPrompt 通过自然语言提示词搜索文档ID
+func (e *FileUploadAndDownloadService) searchDocumentIDsByPrompt(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) ([]string, error) {
+	// 获取向量化服务
+	vectorizationSvc := e.GetVectorizationService()
+	if vectorizationSvc == nil {
+		return nil, fmt.Errorf("向量化服务不可用")
+	}
+
+	// 类型断言为Coze服务
+	cozeService, ok := vectorizationSvc.(*coze.CozeService)
+	if !ok {
+		return nil, fmt.Errorf("当前仅支持Coze向量化服务")
+	}
+
+	// 构建检索请求
+	retrieveReq := &coze.CozeKnowledgeRetrieveRequest{
+		Query:        prompt,
+		KnowledgeIDs: knowledgeIDs,
+		TopK:         topK,
+		MinScore:     minScore,
+		SearchType:   searchType,
+	}
+
+	// 调用Coze检索API
+	resp, err := cozeService.RetrieveKnowledge(retrieveReq)
+	if err != nil {
+		global.GVA_LOG.Error("Coze知识库检索失败",
+			zap.Error(err),
+			zap.String("prompt", prompt),
+			zap.Strings("knowledgeIDs", knowledgeIDs))
+		return nil, fmt.Errorf("知识库检索失败: %w", err)
+	}
+
+	// 提取文档ID列表
+	documentIDs := cozeService.ExtractDocumentIDs(resp)
+
+	global.GVA_LOG.Info("知识库检索完成",
+		zap.String("prompt", prompt),
+		zap.Int("totalResults", resp.Total),
+		zap.Int("documentCount", len(documentIDs)),
+		zap.Strings("documentIDs", documentIDs))
+
+	return documentIDs, nil
+}
+
+// GetFileRecordInfoListWithSearch 支持向量搜索的文件列表查询
+func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
+	// 设置搜索默认值
+	info.GetSearchDefaults()
+
+	// 验证请求参数
+	if err := info.Validate(); err != nil {
+		return nil, 0, err
+	}
+
+	limit := info.PageSize
+	offset := info.PageSize * (info.Page - 1)
+	db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
+
+	// 传统过滤条件
+	if len(info.Keyword) > 0 {
+		db = db.Where("name LIKE ?", "%"+info.Keyword+"%")
+	}
+	if info.ClassId > 0 {
+		db = db.Where("class_id = ?", info.ClassId)
+	}
+
+	// 向量搜索过滤
+	if info.IsVectorSearch() {
+		documentIDs, err := e.searchDocumentIDsByPrompt(
+			info.Prompt,
+			info.KnowledgeIDs,
+			info.TopK,
+			info.MinScore,
+			info.SearchType,
+		)
+		if err != nil {
+			// 向量搜索失败时记录错误但不中断流程，降级为普通搜索
+			global.GVA_LOG.Warn("向量搜索失败，降级为普通搜索",
+				zap.Error(err),
+				zap.String("prompt", info.Prompt))
+		} else if len(documentIDs) == 0 {
+			// 没有匹配的文档，返回空结果
+			global.GVA_LOG.Info("向量搜索无匹配结果", zap.String("prompt", info.Prompt))
+			return []example.ExaFileUploadAndDownload{}, 0, nil
+		} else {
+			// 添加向量搜索过滤条件
+			db = db.Where("vectorization_document_id IN ?", documentIDs)
+			global.GVA_LOG.Info("应用向量搜索过滤",
+				zap.String("prompt", info.Prompt),
+				zap.Int("documentCount", len(documentIDs)))
+		}
+	}
+
+	// 执行查询
+	err = db.Count(&total).Error
+	if err != nil {
+		return
+	}
+	err = db.Limit(limit).Offset(offset).Order("id desc").Find(&list).Error
+	return list, total, err
 }

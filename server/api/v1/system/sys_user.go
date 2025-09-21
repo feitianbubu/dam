@@ -18,7 +18,7 @@ import (
 )
 
 // Login
-// @Tags     Base
+// @Tags     Dam
 // @Summary  用户登录
 // @Produce   application/json
 // @Param    data  body      systemReq.Login                                             true  "用户名, 密码, 验证码"

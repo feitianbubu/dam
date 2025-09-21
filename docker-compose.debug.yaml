@@ -1,0 +1,48 @@
+# 声明一个名为network的networks,subnet为network的子网地址,默认网关是177.7.0.1
+networks:
+  network:
+    ipam:
+      driver: default
+      config:
+        - subnet: '177.7.0.0/16'
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: ./Dockerfile
+    container_name: gva-web-debug
+    restart: always
+    ports:
+      - '8080:8080'
+    depends_on:
+      - server
+    command: [ 'nginx-debug', '-g', 'daemon off;' ]
+    networks:
+      network:
+        ipv4_address: 177.7.0.11
+
+  server:
+    build:
+      context: ./server
+      dockerfile: ./Dockerfile.debug
+    container_name: gva-server-debug
+    restart: always
+    ports:
+      - '8888:8888'  # 应用端口
+      - '2345:2345'  # delve 调试端口
+    volumes:
+      # 挂载源代码目录，支持代码热重载和调试
+      - ./server:/workspace
+    environment:
+      # 设置调试环境变量
+      - CGO_ENABLED=0
+      - GOOS=linux
+    # 启用 security_opt 以支持调试
+    security_opt:
+      - "apparmor:unconfined"
+    cap_add:
+      - SYS_PTRACE
+    networks:
+      network:
+        ipv4_address: 177.7.0.12

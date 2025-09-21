@@ -33,6 +33,7 @@ server/uploads/
 *.iml
 web/.pnpm-debug.log
 web/pnpm-lock.yaml
+web/public/swag/openapi3.json
 
 # binary files
 *.exe
@@ -41,3 +42,5 @@ web/pnpm-lock.yaml
 *.db
 *.sqlite
 *.sqlite3
+/build/
+/server/vendor/

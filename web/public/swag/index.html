@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Clinx API Reference</title>
+    <style>
+        :root {
+            --scalar-custom-header-height: 50px;
+        }
+
+        .custom-header {
+            height: var(--scalar-custom-header-height);
+            padding: 0 18px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .custom-header nav {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+    </style>
+</head>
+<body>
+    <header class="custom-header scalar-app">
+        <b>Clinx API Reference</b>
+        <nav id="nav"></nav>
+    </header>
+    <div id="scalar-container"></div>
+
+    <script>
+        // Initialize navigation
+        const initNavigation = () => {
+            const nav = document.getElementById('nav');
+            const modules = [''];
+            
+            modules.forEach(module => {
+                const link = document.createElement('a');
+                link.href = `?m=${module}`;
+                link.textContent = module;
+                nav.appendChild(link);
+            });
+        };
+
+        // Get API specification URL
+        const getSpecUrl = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const module = urlParams.get('m') || '';
+            return module ? `${module}/${module}.swagger.json` : 'openapi3.json';
+        };
+
+        // Initialize Scalar API Reference
+        const initScalar = async () => {
+            try {
+                const response = await fetch(getSpecUrl());
+                const spec = await response.json();
+                
+                const currentUrl = window.location.origin;
+                const additionalServers = [
+                    {
+                        url: 'http://127.0.0.1:8080/api',
+                        description: 'Development Server'
+                    }
+                ];
+                
+                spec.servers = [
+                    {
+                        url: currentUrl,
+                        description: 'Current Server'
+                    }
+                ];
+                
+                additionalServers.forEach(server => {
+                    if (server.url !== currentUrl) {
+                        spec.servers.push(server);
+                    }
+                });
+
+                Scalar.createApiReference('#scalar-container', {
+                    spec: { content: spec },
+                    hideModels: true
+                });
+            } catch (error) {
+                console.error('Error loading API specification:', error);
+                // Fallback to direct URL configuration
+                Scalar.createApiReference('#scalar-container', {
+                    url: getSpecUrl(),
+                    hideModels: true
+                });
+            }
+        };
+
+        // Load Scalar API Reference script
+        const loadScalar = () => {
+            const script = document.createElement('script');
+            script.src = 'api-reference';
+            script.onload = initScalar;
+            document.body.appendChild(script);
+        };
+
+        // Initialize the page
+        initNavigation();
+        loadScalar();
+    </script>
+</body>
+</html>

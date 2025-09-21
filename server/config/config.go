@@ -37,4 +37,10 @@ type Server struct {
 
 	// MCP配置
 	MCP MCP `mapstructure:"mcp" json:"mcp" yaml:"mcp"`
+
+	// 文件理解配置
+	FileUnderstanding FileUnderstanding `mapstructure:"file-understanding" json:"file-understanding" yaml:"file-understanding"`
+
+	// 向量化服务配置
+	Vectorization Vectorization `mapstructure:"vectorization" json:"vectorization" yaml:"vectorization"`
 }

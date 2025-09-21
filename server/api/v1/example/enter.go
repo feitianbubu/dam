@@ -11,5 +11,6 @@ type ApiGroup struct {
 var (
 	customerService              = service.ServiceGroupApp.ExampleServiceGroup.CustomerService
 	fileUploadAndDownloadService = service.ServiceGroupApp.ExampleServiceGroup.FileUploadAndDownloadService
+	breakpointContinueService    = service.ServiceGroupApp.ExampleServiceGroup.BreakpointContinueService
 	attachmentCategoryService    = service.ServiceGroupApp.ExampleServiceGroup.AttachmentCategoryService
 )

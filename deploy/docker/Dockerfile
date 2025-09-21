@@ -1,18 +1,38 @@
-FROM centos:7
-WORKDIR /opt
-ENV LANG=en_US.utf8
-COPY deploy/docker/entrypoint.sh .
-COPY build/ /usr/share/nginx/html/
-COPY server/config.yaml /usr/share/nginx/html/config.yaml
-COPY web/.docker-compose/nginx/conf.d/nginx.conf /etc/nginx/conf.d/nginx.conf
-RUN set -ex \
-    && echo "LANG=en_US.utf8" > /etc/locale.conf \
-    && echo "net.core.somaxconn = 1024" >> /etc/sysctl.conf \
-    && echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf \
-    && yum -y install epel-release \
-    && yum -y localinstall http://mirrors.ustc.edu.cn/mysql-repo/mysql57-community-release-el7.rpm \
-    && yum -y install mysql-community-server git redis nginx go npm --nogpgcheck && chmod +x ./entrypoint.sh \
-    && npm install -g yarn && go env -w GO111MODULE=on && go env -w GOPROXY=https://goproxy.cn,direct \
-    && echo "start" > /dev/null
+FROM alpine:3.19
+
+# 安装必要包
+RUN apk add --no-cache \
+    bash \
+    nginx \
+    tzdata \
+    curl \
+    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+# 统一工作目录
+WORKDIR /app
+
+# 前端静态资源
+COPY build/dist                  /app/dist
+COPY web/.docker-compose/nginx/conf.d/nginx.conf /etc/nginx/http.d/default.conf
+
+# 后端可执行文件及资源
+COPY server/server           /app/server
+COPY build/resource          /app/resource
+
+# 上传目录提前创建
+RUN mkdir -p /app/uploads
+
+# 权限与启动脚本
+RUN mkdir -p /run/nginx \
+    && chown -R nginx:nginx /var/lib/nginx /var/www /run/nginx \
+    && chmod +x /app/server
+
+# 启动脚本：先起 nginx，再运行后端
+RUN echo '#!/bin/sh' > /app/start.sh \
+    && echo 'nginx' >> /app/start.sh \
+    && echo 'exec /app/server -c /app/config.release.yaml' >> /app/start.sh \
+    && chmod +x /app/start.sh
+
 EXPOSE 80
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/app/start.sh"]

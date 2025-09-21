@@ -8,9 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type FileUploadAndDownloadService struct{}
+type BreakpointContinueService struct{}
 
-var FileUploadAndDownloadServiceApp = new(FileUploadAndDownloadService)
+var BreakpointContinueServiceApp = new(BreakpointContinueService)
 
 //@author: [piexlmax](https://github.com/piexlmax)
 //@function: FindOrCreateFile
@@ -18,7 +18,7 @@ var FileUploadAndDownloadServiceApp = new(FileUploadAndDownloadService)
 //@param: fileMd5 string, fileName string, chunkTotal int
 //@return: file model.ExaFile, err error
 
-func (e *FileUploadAndDownloadService) FindOrCreateFile(fileMd5 string, fileName string, chunkTotal int) (file example.ExaFile, err error) {
+func (e *BreakpointContinueService) FindOrCreateFile(fileMd5 string, fileName string, chunkTotal int) (file example.ExaFile, err error) {
 	var cfile example.ExaFile
 	cfile.FileMd5 = fileMd5
 	cfile.FileName = fileName
@@ -40,7 +40,7 @@ func (e *FileUploadAndDownloadService) FindOrCreateFile(fileMd5 string, fileName
 //@param: id uint, fileChunkPath string, fileChunkNumber int
 //@return: error
 
-func (e *FileUploadAndDownloadService) CreateFileChunk(id uint, fileChunkPath string, fileChunkNumber int) error {
+func (e *BreakpointContinueService) CreateFileChunk(id uint, fileChunkPath string, fileChunkNumber int) error {
 	var chunk example.ExaFileChunk
 	chunk.FileChunkPath = fileChunkPath
 	chunk.ExaFileID = id
@@ -55,7 +55,7 @@ func (e *FileUploadAndDownloadService) CreateFileChunk(id uint, fileChunkPath st
 //@param: fileMd5 string, fileName string, filePath string
 //@return: error
 
-func (e *FileUploadAndDownloadService) DeleteFileChunk(fileMd5 string, filePath string) error {
+func (e *BreakpointContinueService) DeleteFileChunk(fileMd5 string, filePath string) error {
 	var chunks []example.ExaFileChunk
 	var file example.ExaFile
 	err := global.GVA_DB.Where("file_md5 = ?", fileMd5).First(&file).

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"go.uber.org/zap"
 	"net"
 	"time"
 
@@ -39,11 +40,43 @@ func SetToken(c *gin.Context, token string, maxAge int) {
 	}
 }
 
+func tryDebugToken(_ *gin.Context, token string) string {
+	if token != "" {
+		return token
+	}
+	if !gin.IsDebugging() {
+		return token
+	}
+	var user system.SysUser
+	err := global.GVA_DB.Where("id = ?", 1).First(&user).Error
+	if err != nil {
+		global.GVA_LOG.Error(err.Error(), zap.Error(err))
+		return ""
+	}
+	j := NewJWT()
+	claims := j.CreateClaims(systemReq.BaseClaims{
+		UUID:        user.GetUUID(),
+		ID:          user.GetUserId(),
+		NickName:    user.GetNickname(),
+		Username:    user.GetUsername(),
+		AuthorityId: user.GetAuthorityId(),
+	})
+	token, err = j.CreateToken(claims)
+	if err != nil {
+		global.GVA_LOG.Error(err.Error(), zap.Error(err))
+		return ""
+	}
+	return token
+}
+
 func GetToken(c *gin.Context) string {
 	token := c.Request.Header.Get("x-token")
 	if token == "" {
 		j := NewJWT()
 		token, _ = c.Cookie("x-token")
+
+		//token = tryDebugToken(c, token)
+
 		claims, err := j.ParseToken(token)
 		if err != nil {
 			global.GVA_LOG.Error("重新写入cookie token失败,未能成功解析token,请检查请求头是否存在x-token且claims是否为规定结构")

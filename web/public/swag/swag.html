@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Clinx API Reference</title>
+</head>
+<body>
+<style>
+    :root {
+        --scalar-custom-header-height: 50px;
+    }
+
+    .custom-header {
+        height: var(--scalar-custom-header-height);
+        padding: 0 18px;
+        position: sticky;
+        justify-content: space-between;
+        top: 0;
+        z-index: 100;
+    }
+
+    .custom-header,
+    .custom-header nav {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+    }
+</style>
+<header class="custom-header scalar-app" >
+    <b>Clinx API Reference</b>
+    <nav id="nav"></nav>
+    <!-- We will mount Scalar here -->
+</header>
+<div id="scalar-container"></div>
+    <script>
+        const nav = document.getElementById('nav');
+        const modules = [''];
+        modules.forEach(m => {
+            const a = document.createElement('a');
+            a.href = `?m=${m}`;
+            a.textContent = m;
+            nav.appendChild(a);
+        });
+        const url = new URL(window.location.href);
+        let m = url.searchParams.get("m");
+        if (m == null) {
+            m = "";
+        }
+
+        // Prepare config
+        let dataUrl = `${m}/${m}.swagger.json`;
+        if (m === "") {
+            dataUrl = "swagger.json";
+        }
+        const scalarConfiguration = {
+            url: dataUrl,
+            hideModels: true
+        };
+
+        // Load the main Scalar script and initialize on load
+        const api = document.createElement('script');
+        api.src = 'api-reference';
+        api.onload = () => {
+            // Use createApiReference with selector and adjusted config
+            Scalar.createApiReference('#scalar-container', scalarConfiguration);
+        };
+        document.body.appendChild(api);
+    </script>
+
+</body>
+</html>

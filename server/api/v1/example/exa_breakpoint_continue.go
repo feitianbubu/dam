@@ -56,7 +56,7 @@ func (b *FileUploadAndDownloadApi) BreakpointContinue(c *gin.Context) {
 		response.FailWithMessage("检查md5失败", c)
 		return
 	}
-	file, err := fileUploadAndDownloadService.FindOrCreateFile(fileMd5, fileName, chunkTotal)
+	file, err := breakpointContinueService.FindOrCreateFile(fileMd5, fileName, chunkTotal)
 	if err != nil {
 		global.GVA_LOG.Error("查找或创建记录失败!", zap.Error(err))
 		response.FailWithMessage("查找或创建记录失败", c)
@@ -69,7 +69,7 @@ func (b *FileUploadAndDownloadApi) BreakpointContinue(c *gin.Context) {
 		return
 	}
 
-	if err = fileUploadAndDownloadService.CreateFileChunk(file.ID, pathC, chunkNumber); err != nil {
+	if err = breakpointContinueService.CreateFileChunk(file.ID, pathC, chunkNumber); err != nil {
 		global.GVA_LOG.Error("创建文件记录失败!", zap.Error(err))
 		response.FailWithMessage("创建文件记录失败", c)
 		return
@@ -90,7 +90,7 @@ func (b *FileUploadAndDownloadApi) FindFile(c *gin.Context) {
 	fileMd5 := c.Query("fileMd5")
 	fileName := c.Query("fileName")
 	chunkTotal, _ := strconv.Atoi(c.Query("chunkTotal"))
-	file, err := fileUploadAndDownloadService.FindOrCreateFile(fileMd5, fileName, chunkTotal)
+	file, err := breakpointContinueService.FindOrCreateFile(fileMd5, fileName, chunkTotal)
 	if err != nil {
 		global.GVA_LOG.Error("查找失败!", zap.Error(err))
 		response.FailWithMessage("查找失败", c)
@@ -146,7 +146,7 @@ func (b *FileUploadAndDownloadApi) RemoveChunk(c *gin.Context) {
 		global.GVA_LOG.Error("缓存切片删除失败!", zap.Error(err))
 		return
 	}
-	err = fileUploadAndDownloadService.DeleteFileChunk(file.FileMd5, file.FilePath)
+	err = breakpointContinueService.DeleteFileChunk(file.FileMd5, file.FilePath)
 	if err != nil {
 		global.GVA_LOG.Error(err.Error(), zap.Error(err))
 		response.FailWithMessage(err.Error(), c)
