@@ -226,7 +226,15 @@ func (e *FileUploadAndDownloadService) GetFilesByProcessStatus(status string, pa
 }
 
 // searchDocumentIDsByPrompt 通过自然语言提示词搜索文档ID
-func (e *FileUploadAndDownloadService) searchDocumentIDsByPrompt(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) ([]string, error) {
+// searchResult 检索结果结构
+type searchResult struct {
+	DocumentIDs   []string
+	DocumentIDMap map[string]uint  // 文档ID -> 文件ID映射
+	Scores        map[uint]float64 // 文件ID -> 分数映射
+}
+
+// searchDocumentIDsWithScores 按prompt搜索文档ID列表并返回分数
+func (e *FileUploadAndDownloadService) searchDocumentIDsWithScores(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) (*searchResult, error) {
 	// 获取向量化服务
 	vectorizationSvc := e.GetVectorizationService()
 	if vectorizationSvc == nil {
@@ -258,26 +266,62 @@ func (e *FileUploadAndDownloadService) searchDocumentIDsByPrompt(prompt string, 
 		return nil, fmt.Errorf("知识库检索失败: %w", err)
 	}
 
-	// 提取文档ID列表
-	documentIDs := cozeService.ExtractDocumentIDs(resp)
+	// 构建搜索结果，包含分数信息
+	result := &searchResult{
+		DocumentIDs:   []string{},
+		DocumentIDMap: make(map[string]uint),
+		Scores:        make(map[uint]float64),
+	}
+
+	// 从数据库查询文档ID和文件ID的映射关系
+	if len(resp.Results) > 0 {
+		documentIDs := make([]string, 0, len(resp.Results))
+		for _, result := range resp.Results {
+			documentIDs = append(documentIDs, fmt.Sprintf("%d", result.DocumentID))
+		}
+
+		// 查询映射关系 - 从数据库找vectorization_document_id对应的文件记录
+		var files []example.ExaFileUploadAndDownload
+		db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
+		db = db.Where("vectorization_document_id IN ?", documentIDs)
+		err = db.Find(&files).Error
+		if err != nil {
+			global.GVA_LOG.Warn("查询文件记录映射失败", zap.Error(err))
+		}
+
+		// 构建映射关系和分数
+		for _, dbFile := range files {
+			result.DocumentIDMap[dbFile.VectorizationDocumentID] = dbFile.ID
+		}
+
+		// 按检索结果顺序处理分数
+		for _, retrieveResult := range resp.Results {
+			docIDStr := fmt.Sprintf("%d", retrieveResult.DocumentID)
+			result.DocumentIDs = append(result.DocumentIDs, docIDStr)
+
+			// 如果有对应的文件ID，记录分数
+			if fileID, exists := result.DocumentIDMap[docIDStr]; exists {
+				result.Scores[fileID] = retrieveResult.Score
+			}
+		}
+	}
 
 	global.GVA_LOG.Info("知识库检索完成",
 		zap.String("prompt", prompt),
 		zap.Int("totalResults", resp.Total),
-		zap.Int("documentCount", len(documentIDs)),
-		zap.Strings("documentIDs", documentIDs))
+		zap.Int("documentCount", len(result.DocumentIDs)),
+		zap.Strings("documentIDs", result.DocumentIDs))
 
-	return documentIDs, nil
+	return result, nil
 }
 
-// GetFileRecordInfoListWithSearch 支持向量搜索的文件列表查询
 func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
 	// 设置搜索默认值
 	info.GetSearchDefaults()
 
 	// 验证请求参数
-	if err := info.Validate(); err != nil {
-		return nil, 0, err
+	if err = info.Validate(); err != nil {
+		return
 	}
 
 	limit := info.PageSize
@@ -292,9 +336,10 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 		db = db.Where("class_id = ?", info.ClassId)
 	}
 
+	var scores map[uint]float64
 	// 向量搜索过滤
 	if info.IsVectorSearch() {
-		documentIDs, err := e.searchDocumentIDsByPrompt(
+		searchResult, err := e.searchDocumentIDsWithScores(
 			info.Prompt,
 			info.KnowledgeIDs,
 			info.TopK,
@@ -306,16 +351,19 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 			global.GVA_LOG.Warn("向量搜索失败，降级为普通搜索",
 				zap.Error(err),
 				zap.String("prompt", info.Prompt))
-		} else if len(documentIDs) == 0 {
+		} else if len(searchResult.DocumentIDs) == 0 {
 			// 没有匹配的文档，返回空结果
 			global.GVA_LOG.Info("向量搜索无匹配结果", zap.String("prompt", info.Prompt))
 			return []example.ExaFileUploadAndDownload{}, 0, nil
 		} else {
 			// 添加向量搜索过滤条件
-			db = db.Where("vectorization_document_id IN ?", documentIDs)
+			db = db.Where("vectorization_document_id IN ?", searchResult.DocumentIDs)
 			global.GVA_LOG.Info("应用向量搜索过滤",
 				zap.String("prompt", info.Prompt),
-				zap.Int("documentCount", len(documentIDs)))
+				zap.Int("documentCount", len(searchResult.DocumentIDs)))
+
+			// 保存分数信息
+			scores = searchResult.Scores
 		}
 	}
 
@@ -325,5 +373,15 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 		return
 	}
 	err = db.Limit(limit).Offset(offset).Order("id desc").Find(&list).Error
+
+	// 为查询结果填充分数信息
+	if scores != nil {
+		for i := range list {
+			if score, exists := scores[list[i].ID]; exists {
+				list[i].Score = score
+			}
+		}
+	}
+
 	return list, total, err
 }

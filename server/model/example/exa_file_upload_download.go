@@ -29,6 +29,9 @@ type ExaFileUploadAndDownload struct {
 	VectorizationProvider   string `json:"vectorizationProvider" gorm:"column:vectorization_provider;comment:向量化服务提供商"`
 	VectorizationError      string `json:"vectorizationError" gorm:"column:vectorization_error;comment:向量化处理错误信息"`
 	VectorizationRetryCount int    `json:"vectorizationRetryCount" gorm:"column:vectorization_retry_count;default:0;comment:向量化重试次数"`
+
+	// 临时字段：向量搜索相似度分数（只在搜索时返回）
+	Score float64 `json:"score,omitempty" gorm:"-"` // 向量搜索相似度分数
 }
 
 // FileMetadata 只存储文件理解的纯元数据

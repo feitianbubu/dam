@@ -109,7 +109,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 
 // GetFileList
 // @Tags      Dam
-// @Summary   分页文件列表（支持向量搜索）
+// @Summary   搜索文件列表
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
