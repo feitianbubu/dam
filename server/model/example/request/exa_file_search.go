@@ -7,17 +7,16 @@ import (
 
 // VectorSearchParams 向量搜索参数
 type VectorSearchParams struct {
-	Prompt       string   `json:"prompt" form:"prompt"`                                  // 自然语言搜索提示词
-	KnowledgeIDs []string `json:"knowledgeIds" form:"knowledgeIds" swaggerignore:"true"` // 知识库ID列表（向量搜索时必需）
-	TopK         int      `json:"topK" form:"topK" example:"0"`                          // 向量搜索返回结果数量，默认10
-	MinScore     float64  `json:"minScore" form:"minScore" example:"0"`                  // 最小相似度分数，默认0.0
-	SearchType   int      `json:"searchType" form:"searchType" example:"2"`              // 检索类型：0=语义检索，1=全文检索，2=混合检索，默认2
+	Prompt       string   `json:"prompt" form:"prompt"`                                        // 自然语言搜索提示词
+	KnowledgeIDs []string `json:"knowledgeIds" form:"knowledgeIds" swaggerignore:"true"`       // 知识库ID列表（向量搜索时必需）
+	TopK         int      `json:"topK" form:"topK" example:"10" swaggerignore:"true"`          // 向量搜索返回结果数量，默认10
+	MinScore     float64  `json:"minScore" form:"minScore" example:"0.5" swaggerignore:"true"` // 最小相似度分数，默认0.0
+	SearchType   int      `json:"searchType" form:"searchType" example:"2"`                    // 检索类型：0=语义检索，1=全文检索，2=混合检索，默认2
 }
 
 // ExaFileSearchRequest 文件搜索请求，支持传统搜索和向量搜索
 type ExaFileSearchRequest struct {
-	ClassId int    `json:"classId" form:"classId" swaggerignore:"true"` // 分类ID
-	Keyword string `json:"keyword" form:"keyword"`                      // 传统关键词搜索
+	ClassId int `json:"classId" form:"classId" swaggerignore:"true"` // 分类ID
 	VectorSearchParams
 	request.PageInfo
 }
@@ -30,7 +29,7 @@ func (r *ExaFileSearchRequest) IsVectorSearch() bool {
 // GetSearchDefaults 获取搜索默认值
 func (r *ExaFileSearchRequest) GetSearchDefaults() {
 	if r.VectorSearchParams.TopK <= 0 {
-		r.VectorSearchParams.TopK = 10
+		r.VectorSearchParams.TopK = 30
 	}
 	if r.VectorSearchParams.MinScore < 0 {
 		r.VectorSearchParams.MinScore = 0.0
