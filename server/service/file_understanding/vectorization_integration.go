@@ -2,8 +2,8 @@ package file_understanding
 
 import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/pkg/vectorization"
+	"github.com/flipped-aurora/gin-vue-admin/server/service/common"
 	vectorizationService "github.com/flipped-aurora/gin-vue-admin/server/service/vectorization"
 	"go.uber.org/zap"
 )
@@ -11,11 +11,14 @@ import (
 // VectorizationIntegration 向量化集成服务
 type VectorizationIntegration struct {
 	businessService *vectorizationService.BusinessService
+	statusUpdater   *common.VectorizationStatusUpdater
 }
 
 // NewVectorizationIntegration 创建向量化集成服务
 func NewVectorizationIntegration() *VectorizationIntegration {
-	return &VectorizationIntegration{}
+	return &VectorizationIntegration{
+		statusUpdater: common.NewVectorizationStatusUpdater(),
+	}
 }
 
 // InitializeVectorizationService 初始化向量化服务
@@ -73,14 +76,7 @@ func (v *VectorizationIntegration) ProcessFileVectorization(fileID uint) {
 
 // updateVectorizationStatusToFailed 更新向量化状态为失败
 func (v *VectorizationIntegration) updateVectorizationStatusToFailed(fileID uint, errorMsg string) {
-	updates := map[string]interface{}{
-		"vectorization_status": example.VectorizationStatusFailed,
-		"vectorization_error":  errorMsg,
-	}
-
-	if err := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
-		Where("id = ?", fileID).
-		Updates(updates).Error; err != nil {
+	if err := v.statusUpdater.UpdateVectorizationStatusToFailed(fileID, errorMsg); err != nil {
 		global.GVA_LOG.Error("更新向量化状态失败",
 			zap.Uint64("fileID", uint64(fileID)),
 			zap.Error(err))

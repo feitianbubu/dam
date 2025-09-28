@@ -8,6 +8,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/pkg/vectorization"
+	"github.com/flipped-aurora/gin-vue-admin/server/service/common"
 	"go.uber.org/zap"
 )
 
@@ -15,6 +16,7 @@ import (
 type BusinessService struct {
 	vectorService vectorization.VectorizationService
 	config        *Config
+	statusUpdater *common.VectorizationStatusUpdater
 }
 
 // NewBusinessService 创建向量化业务服务
@@ -22,6 +24,7 @@ func NewBusinessService(vectorService vectorization.VectorizationService, config
 	return &BusinessService{
 		vectorService: vectorService,
 		config:        config,
+		statusUpdater: common.NewVectorizationStatusUpdater(),
 	}
 }
 
@@ -51,7 +54,7 @@ func (s *BusinessService) ProcessFileVectorization(fileID uint) error {
 	}
 
 	// 更新向量化状态为处理中
-	if err := s.updateVectorizationStatus(fileID, example.VectorizationStatusProcessing, "", ""); err != nil {
+	if err := s.statusUpdater.UpdateVectorizationStatusToProcessing(fileID); err != nil {
 		return fmt.Errorf("更新向量化状态失败: %w", err)
 	}
 
@@ -87,7 +90,7 @@ func (s *BusinessService) processFileVectorizationSync(fileID uint, file *exampl
 		err = s.doVectorization(fileID, file)
 		if err == nil {
 			// 成功，更新状态
-			return s.updateVectorizationStatus(fileID, example.VectorizationStatusCompleted, "", global.GVA_CONFIG.Vectorization.Provider)
+			return s.statusUpdater.UpdateVectorizationStatusToCompleted(fileID, global.GVA_CONFIG.Vectorization.Provider)
 		}
 
 		global.GVA_LOG.Warn("向量化处理失败，尝试重试",
@@ -105,7 +108,7 @@ func (s *BusinessService) processFileVectorizationSync(fileID uint, file *exampl
 	}
 
 	// 所有重试都失败，更新状态
-	s.updateVectorizationStatus(fileID, example.VectorizationStatusFailed, err.Error(), global.GVA_CONFIG.Vectorization.Provider)
+	s.statusUpdater.UpdateVectorizationStatusToFailed(fileID, err.Error())
 	return err
 }
 
@@ -145,9 +148,7 @@ func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUplo
 	}
 
 	// 更新数据库记录文档ID
-	if err := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
-		Where("id = ?", fileID).
-		Update("vectorization_document_id", document.ID).Error; err != nil {
+	if err := s.statusUpdater.UpdateVectorizationDocumentID(fileID, document.ID); err != nil {
 		return fmt.Errorf("更新向量化文档ID失败: %w", err)
 	}
 
@@ -212,20 +213,10 @@ func (s *BusinessService) buildDocumentContent(file *example.ExaFileUploadAndDow
 	return content.String()
 }
 
-// updateVectorizationStatus 更新向量化状态
+// updateVectorizationStatus 更新向量化状态（已废弃，请使用statusUpdater）
+// Deprecated: 使用statusUpdater.UpdateVectorizationStatus替代
 func (s *BusinessService) updateVectorizationStatus(fileID uint, status, errorMsg, provider string) error {
-	updates := map[string]interface{}{
-		"vectorization_status": status,
-		"vectorization_error":  errorMsg,
-	}
-
-	if provider != "" {
-		updates["vectorization_provider"] = provider
-	}
-
-	return global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
-		Where("id = ?", fileID).
-		Updates(updates).Error
+	return s.statusUpdater.UpdateVectorizationStatus(fileID, status, errorMsg, provider)
 }
 
 // GetVectorizationProgress 获取向量化进度
@@ -252,7 +243,7 @@ func (s *BusinessService) GetVectorizationProgress(fileID uint) (*vectorization.
 // RetryVectorization 重试向量化
 func (s *BusinessService) RetryVectorization(fileID uint) error {
 	// 重置向量化状态
-	if err := s.updateVectorizationStatus(fileID, example.VectorizationStatusPending, "", ""); err != nil {
+	if err := s.statusUpdater.UpdateVectorizationStatus(fileID, example.VectorizationStatusPending, "", ""); err != nil {
 		return fmt.Errorf("重置向量化状态失败: %w", err)
 	}
 

@@ -3,7 +3,6 @@ package file_understanding
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -31,32 +30,14 @@ func (a *DocumentAnalyzer) SupportedFileTypes() []string {
 
 // IsSupported 检查是否支持指定的文件类型
 func (a *DocumentAnalyzer) IsSupported(fileType string) bool {
-	supportedTypes := a.SupportedFileTypes()
-	fileType = strings.ToLower(fileType)
-	for _, t := range supportedTypes {
-		if strings.ToLower(t) == fileType {
-			return true
-		}
-	}
-	return false
+	return a.CheckFileTypeSupport(fileType, a.SupportedFileTypes())
 }
 
 // AnalyzeFile 分析文档文件
 func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileType string, modelConfig config.ModelConfig) (*example.FileMetadata, error) {
 	if !a.IsEnabled() {
-		global.GVA_LOG.Info("文档分析器未启用，跳过处理", zap.String("filePath", filePath))
-		return &example.FileMetadata{
-			Description:  "文档分析功能未启用",
-			ContentType:  fileType,
-			DetectedText: "",
-			Objects:      []string{},
-			Tags:         []string{"skipped", "document"},
-			FileSize:     0,
-			Language:     "unknown",
-			Category:     "document",
-			Confidence:   0.0,
-			ExtraData:    make(map[string]interface{}),
-		}, nil
+		a.LogDisabledSkip(filePath, "文档")
+		return a.CreateDisabledResponse(filePath, fileType, "文档"), nil
 	}
 
 	prompt := `请分析这个文档文件，并以JSON格式返回以下信息：
@@ -91,11 +72,8 @@ func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fil
 		},
 	}
 
-	global.GVA_LOG.Info("开始分析文档文件",
-		zap.String("filePath", filePath),
-		zap.String("fileType", fileType),
-		zap.String("model", modelConfig.Model),
-		zap.Int("contentLength", len(content)))
+	a.LogAnalysisStart(filePath, fileType, "文档", modelConfig)
+	global.GVA_LOG.Info("文档内容长度", zap.Int("contentLength", len(content)))
 
 	metadata, err := a.client.analyzeWithOpenAI(ctx, filePath, fileType, modelConfig, messageParts)
 	if err != nil {
@@ -106,9 +84,7 @@ func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fil
 	metadata.Tags = append(metadata.Tags, "document", fileType)
 	metadata.Category = "document"
 
-	global.GVA_LOG.Info("文档分析完成",
-		zap.String("filePath", filePath),
-		zap.String("description", metadata.Description))
+	a.LogAnalysisComplete(filePath, "文档", metadata.Description)
 
 	return metadata, nil
 }

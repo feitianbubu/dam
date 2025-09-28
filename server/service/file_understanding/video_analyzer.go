@@ -34,32 +34,14 @@ func (a *VideoAnalyzer) SupportedFileTypes() []string {
 
 // IsSupported 检查是否支持指定的文件类型
 func (a *VideoAnalyzer) IsSupported(fileType string) bool {
-	supportedTypes := a.SupportedFileTypes()
-	fileType = strings.ToLower(fileType)
-	for _, t := range supportedTypes {
-		if strings.ToLower(t) == fileType {
-			return true
-		}
-	}
-	return false
+	return a.CheckFileTypeSupport(fileType, a.SupportedFileTypes())
 }
 
 // AnalyzeFile 分析视频文件
 func (a *VideoAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileType string, modelConfig config.ModelConfig) (*example.FileMetadata, error) {
 	if !a.IsEnabled() {
-		global.GVA_LOG.Info("视频分析器未启用，跳过处理", zap.String("filePath", filePath))
-		return &example.FileMetadata{
-			Description:  "视频分析功能未启用",
-			ContentType:  fileType,
-			DetectedText: "",
-			Objects:      []string{},
-			Tags:         []string{"skipped", "video"},
-			FileSize:     0,
-			Language:     "unknown",
-			Category:     "video",
-			Confidence:   0.0,
-			ExtraData:    make(map[string]interface{}),
-		}, nil
+		a.LogDisabledSkip(filePath, "视频")
+		return a.CreateDisabledResponse(filePath, fileType, "视频"), nil
 	}
 
 	prompt := `请分析这个视频文件，并以JSON格式返回以下信息：
@@ -80,10 +62,7 @@ func (a *VideoAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 		return nil, fmt.Errorf("视频文件分析需要HTTP URL，本地文件路径不支持: %s", filePath)
 	}
 
-	global.GVA_LOG.Info("开始分析视频文件",
-		zap.String("filePath", filePath),
-		zap.String("fileType", fileType),
-		zap.String("model", modelConfig.Model))
+	a.LogAnalysisStart(filePath, fileType, "视频", modelConfig)
 
 	// 由于video_url不是OpenAI SDK标准格式，需要直接构造HTTP请求
 	return a.analyzeVideoWithDirectHTTP(ctx, filePath, fileType, prompt, modelConfig)
@@ -152,9 +131,7 @@ func (a *VideoAnalyzer) analyzeVideoWithDirectHTTP(ctx context.Context, filePath
 		return nil, fmt.Errorf("序列化请求体失败: %w", err)
 	}
 
-	global.GVA_LOG.Info("发送视频分析请求",
-		zap.String("filePath", filePath),
-		zap.String("fileType", fileType),
+	global.GVA_LOG.Info("发送视频分析HTTP请求",
 		zap.String("model", modelConfig.Model))
 
 	// 创建HTTP请求

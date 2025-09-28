@@ -32,32 +32,14 @@ func (a *AudioAnalyzer) SupportedFileTypes() []string {
 
 // IsSupported 检查是否支持指定的文件类型
 func (a *AudioAnalyzer) IsSupported(fileType string) bool {
-	supportedTypes := a.SupportedFileTypes()
-	fileType = strings.ToLower(fileType)
-	for _, t := range supportedTypes {
-		if strings.ToLower(t) == fileType {
-			return true
-		}
-	}
-	return false
+	return a.CheckFileTypeSupport(fileType, a.SupportedFileTypes())
 }
 
 // AnalyzeFile 分析音频文件
 func (a *AudioAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileType string, modelConfig config.ModelConfig) (*example.FileMetadata, error) {
 	if !a.IsEnabled() {
-		global.GVA_LOG.Info("音频分析器未启用，跳过处理", zap.String("filePath", filePath))
-		return &example.FileMetadata{
-			Description:  "音频分析功能未启用",
-			ContentType:  fileType,
-			DetectedText: "",
-			Objects:      []string{},
-			Tags:         []string{"skipped", "audio"},
-			FileSize:     0,
-			Language:     "unknown",
-			Category:     "audio",
-			Confidence:   0.0,
-			ExtraData:    make(map[string]interface{}),
-		}, nil
+		a.LogDisabledSkip(filePath, "音频")
+		return a.CreateDisabledResponse(filePath, fileType, "音频"), nil
 	}
 
 	// 处理文件路径：如果是URL则下载到临时文件
@@ -93,11 +75,8 @@ func (a *AudioAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 		FilePath: localFilePath,
 	}
 
-	global.GVA_LOG.Info("开始分析音频文件",
-		zap.String("filePath", filePath),
-		zap.String("localPath", localFilePath),
-		zap.String("fileType", fileType),
-		zap.String("model", audioModel))
+	a.LogAnalysisStart(filePath, fileType, "音频", modelConfig)
+	global.GVA_LOG.Info("本地文件路径", zap.String("localPath", localFilePath), zap.String("model", audioModel))
 
 	resp, err := a.client.client.CreateTranscription(ctx, req)
 	if err != nil {
@@ -157,10 +136,8 @@ func (a *AudioAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 		},
 	}
 
-	global.GVA_LOG.Info("音频分析完成",
-		zap.String("filePath", filePath),
-		zap.String("description", description),
-		zap.String("language", resp.Language))
+	a.LogAnalysisComplete(filePath, "音频", description)
+	global.GVA_LOG.Info("音频转录详情", zap.String("language", resp.Language))
 
 	return metadata, nil
 }
