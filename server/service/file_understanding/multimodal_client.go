@@ -184,9 +184,7 @@ func (c *MultimodalAPIClient) isVideoFile(fileType string) bool {
 	return false
 }
 
-// analyzeWithOpenAI 统一的OpenAI多模态分析核心方法
 func (c *MultimodalAPIClient) analyzeWithOpenAI(ctx context.Context, filePath, fileType string, modelConfig config.ModelConfig, messageParts []openai.ChatMessagePart) (*example.FileMetadata, error) {
-	// 构建请求
 	req := openai.ChatCompletionRequest{
 		Model: modelConfig.Model,
 		Messages: []openai.ChatCompletionMessage{
@@ -227,28 +225,13 @@ func (c *MultimodalAPIClient) analyzeWithOpenAI(ctx context.Context, filePath, f
 	content := resp.Choices[0].Message.Content
 	global.GVA_LOG.Info("OpenAI API返回结果", zap.String("content", content))
 
-	// 构建基础的FileMetadata
 	metadata := &example.FileMetadata{
-		Description:  content,
-		ContentType:  fileType,
-		DetectedText: "",
-		Objects:      []string{},
-		Tags:         []string{"ai-analyzed"},
-		FileSize:     0,
-		Language:     "auto-detected",
-		Category:     c.getCategoryByFileType(fileType),
-		Confidence:   0.8,
-		ExtraData: map[string]interface{}{
-			"model":       modelConfig.Model,
-			"tokens":      resp.Usage.TotalTokens,
-			"rawResponse": content,
-		},
+		Description: content,
 	}
 
 	return metadata, nil
 }
 
-// getCategoryByFileType 根据文件类型获取类别
 func (c *MultimodalAPIClient) getCategoryByFileType(fileType string) string {
 	if c.isImageFile(fileType) {
 		return "image"
