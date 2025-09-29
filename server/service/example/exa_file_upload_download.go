@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"sort"
 	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -233,7 +234,6 @@ type searchResult struct {
 	Scores        map[uint]float64 // 文件ID -> 分数映射
 }
 
-// searchDocumentIDsWithScores 按prompt搜索文档ID列表并返回分数
 func (e *FileUploadAndDownloadService) searchDocumentIDsWithScores(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) (*searchResult, error) {
 	// 获取向量化服务
 	vectorizationSvc := e.GetVectorizationService()
@@ -273,36 +273,33 @@ func (e *FileUploadAndDownloadService) searchDocumentIDsWithScores(prompt string
 		Scores:        make(map[uint]float64),
 	}
 
-	// 从数据库查询文档ID和文件ID的映射关系
 	if len(resp.Results) > 0 {
-		documentIDs := make([]string, 0, len(resp.Results))
-		for _, result := range resp.Results {
-			documentIDs = append(documentIDs, fmt.Sprintf("%d", result.DocumentID))
+		documentScores := make(map[string]float64) // document_id -> max_score
+		for _, retrieveResult := range resp.Results {
+			docID := fmt.Sprintf("%d", retrieveResult.DocumentID)
+			if existingScore, exists := documentScores[docID]; !exists || retrieveResult.Score > existingScore {
+				documentScores[docID] = retrieveResult.Score
+			}
 		}
 
-		// 查询映射关系 - 从数据库找vectorization_document_id对应的文件记录
+		uniqueDocumentIDs := make([]string, 0, len(documentScores))
+		for docID := range documentScores {
+			uniqueDocumentIDs = append(uniqueDocumentIDs, docID)
+		}
+
 		var files []example.ExaFileUploadAndDownload
 		db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
-		db = db.Where("vectorization_document_id IN ?", documentIDs)
+		db = db.Where("vectorization_document_id IN ?", uniqueDocumentIDs)
 		err = db.Find(&files).Error
 		if err != nil {
 			global.GVA_LOG.Warn("查询文件记录映射失败", zap.Error(err))
 		}
 
-		// 构建映射关系和分数
 		for _, dbFile := range files {
-			result.DocumentIDMap[dbFile.VectorizationDocumentID] = dbFile.ID
-		}
-
-		// 按检索结果顺序处理分数
-		for _, retrieveResult := range resp.Results {
-			docIDStr := fmt.Sprintf("%d", retrieveResult.DocumentID)
+			docIDStr := dbFile.VectorizationDocumentID
+			result.DocumentIDMap[docIDStr] = dbFile.ID
 			result.DocumentIDs = append(result.DocumentIDs, docIDStr)
-
-			// 如果有对应的文件ID，记录分数
-			if fileID, exists := result.DocumentIDMap[docIDStr]; exists {
-				result.Scores[fileID] = retrieveResult.Score
-			}
+			result.Scores[dbFile.ID] = documentScores[docIDStr]
 		}
 	}
 
@@ -381,6 +378,11 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 				list[i].Score = score
 			}
 		}
+
+		// 按分数倒序排序
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].Score > list[j].Score
+		})
 	}
 
 	return list, total, err
