@@ -38,16 +38,7 @@ func (a *ImageAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 		return a.CreateDisabledResponse(filePath, fileType, "图片"), nil
 	}
 
-	prompt := `请详细分析这张图片，并以JSON格式返回以下信息：
-1. description: 图片的详细描述（中文）
-2. detectedText: 图片中的文字内容（如果有）
-3. objects: 检测到的物体/对象列表
-4. tags: 相关标签列表
-5. category: 图片类别（如：人物、风景、产品、文档等）
-6. language: 如果有文字，检测到的语言
-7. confidence: 分析的置信度（0-1之间的数值）
-
-请确保返回有用的、准确的分析结果。`
+	prompt := `请详细分析这张图片，返回图片的详细描述(中文), 只返回描述, 不要包含其他信息`
 
 	messageParts := []openai.ChatMessagePart{
 		{

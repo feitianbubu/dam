@@ -30,12 +30,10 @@ func (a *AudioAnalyzer) SupportedFileTypes() []string {
 	return global.GVA_CONFIG.FileUnderstanding.SupportedFileTypes.Audios
 }
 
-// IsSupported 检查是否支持指定的文件类型
 func (a *AudioAnalyzer) IsSupported(fileType string) bool {
 	return a.CheckFileTypeSupport(fileType, a.SupportedFileTypes())
 }
 
-// AnalyzeFile 分析音频文件
 func (a *AudioAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileType string, modelConfig config.ModelConfig) (*example.FileMetadata, error) {
 	if !a.IsEnabled() {
 		a.LogDisabledSkip(filePath, "音频")
