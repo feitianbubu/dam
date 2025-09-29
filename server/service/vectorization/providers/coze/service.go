@@ -260,7 +260,6 @@ func (c *CozeService) SearchDocuments(req *vectorization.SearchRequest) (*vector
 	return nil, fmt.Errorf("search documents not implemented yet")
 }
 
-// RetrieveKnowledge 知识库检索
 func (c *CozeService) RetrieveKnowledge(req *CozeKnowledgeRetrieveRequest) (*CozeKnowledgeRetrieveResponse, error) {
 	// 设置默认值
 	if req.TopK <= 0 {
@@ -274,8 +273,8 @@ func (c *CozeService) RetrieveKnowledge(req *CozeKnowledgeRetrieveRequest) (*Coz
 	}
 
 	// 默认启用查询重写和重排序
-	req.EnableQueryRewrite = true
-	req.EnableRerank = true
+	req.EnableQueryRewrite = false
+	req.EnableRerank = false
 	req.EnableNL2SQL = false
 
 	var resp CozeKnowledgeRetrieveResponse

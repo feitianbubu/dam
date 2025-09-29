@@ -69,7 +69,6 @@ func NewMultimodalAPIClient() *MultimodalAPIClient {
 	return mac
 }
 
-// AnalyzeFile 实现FileUnderstandingService接口
 func (c *MultimodalAPIClient) AnalyzeFile(filePath string, fileType string) (*example.FileMetadata, error) {
 	if !c.enabled {
 		global.GVA_LOG.Info("文件理解功能未启用，跳过处理", zap.String("filePath", filePath))
@@ -87,7 +86,6 @@ func (c *MultimodalAPIClient) AnalyzeFile(filePath string, fileType string) (*ex
 		}, nil
 	}
 
-	// 检查文件类型是否支持
 	if !c.IsFileTypeSupported(fileType) {
 		return nil, fmt.Errorf("不支持的文件类型: %s", fileType)
 	}
@@ -95,20 +93,16 @@ func (c *MultimodalAPIClient) AnalyzeFile(filePath string, fileType string) (*ex
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
-	// 根据文件类型获取模型配置
-	fileTypeCategory := c.getCategoryByFileType(fileType)
-	modelConfig := global.GVA_CONFIG.FileUnderstanding.GetModelConfigForFileType(fileTypeCategory)
-
+	category := c.getCategoryByFileType(fileType)
+	modelConfig := global.GVA_CONFIG.FileUnderstanding.GetModelConfigForFileType(category)
 	global.GVA_LOG.Info("开始调用OpenAI API分析文件",
 		zap.String("filePath", filePath),
 		zap.String("fileType", fileType),
-		zap.String("fileTypeCategory", fileTypeCategory),
+		zap.String("category", category),
 		zap.String("model", modelConfig.Model),
 		zap.Int("maxTokens", modelConfig.MaxTokens),
 		zap.Float32("temperature", modelConfig.Temperature))
 
-	// 根据文件类型选择对应的分析器
-	category := c.getCategoryByFileType(fileType)
 	analyzer, exists := c.analyzers[category]
 	if !exists || !analyzer.IsSupported(fileType) {
 		return nil, fmt.Errorf("暂不支持分析此类型文件: %s (category: %s)", fileType, category)

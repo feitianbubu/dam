@@ -123,6 +123,12 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
+	if searchInfo.Page <= 0 {
+		searchInfo.Page = 1
+	}
+	if searchInfo.PageSize <= 0 {
+		searchInfo.PageSize = 10
+	}
 
 	// 如果有向量搜索参数，使用新的搜索方法
 	if searchInfo.IsVectorSearch() {

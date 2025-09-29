@@ -7,11 +7,11 @@ import (
 
 // VectorSearchParams 向量搜索参数
 type VectorSearchParams struct {
-	Prompt       string   `json:"prompt" form:"prompt"`                                        // 自然语言搜索提示词
-	KnowledgeIDs []string `json:"knowledgeIds" form:"knowledgeIds" swaggerignore:"true"`       // 知识库ID列表（向量搜索时必需）
-	TopK         int      `json:"topK" form:"topK" example:"10" swaggerignore:"true"`          // 向量搜索返回结果数量，默认10
-	MinScore     float64  `json:"minScore" form:"minScore" example:"0.5" swaggerignore:"true"` // 最小相似度分数，默认0.0
-	SearchType   int      `json:"searchType" form:"searchType" example:"2"`                    // 检索类型：0=语义检索，1=全文检索，2=混合检索，默认2
+	Prompt       string   `json:"prompt" form:"prompt"`                                          // 自然语言搜索提示词
+	KnowledgeIDs []string `json:"knowledgeIds" form:"knowledgeIds" swaggerignore:"true"`         // 知识库ID列表（向量搜索时必需）
+	TopK         int      `json:"topK" form:"topK" example:"10" swaggerignore:"true"`            // 向量搜索返回结果数量，默认10
+	MinScore     float64  `json:"minScore" form:"minScore" example:"0.5" swaggerignore:"true"`   // 最小相似度分数，默认0.0
+	SearchType   int      `json:"searchType" form:"searchType" example:"2" swaggerignore:"true"` // 检索类型：0=语义检索，1=全文检索，2=混合检索，默认2
 }
 
 // ExaFileSearchRequest 文件搜索请求，支持传统搜索和向量搜索

@@ -41,7 +41,7 @@ func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fil
 	}
 
 	prompt := `请分析这个文档文件，并以JSON格式返回以下信息：
-1. description: 文档的主要内容概述（中文）
+1. description: 文档的主要内容概述
 2. detectedText: 文档的关键文本片段
 3. objects: 提取的关键词、实体、概念
 4. tags: 文档标签（如：合同、报告、技术文档等）
@@ -49,7 +49,7 @@ func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fil
 6. language: 检测到的主要语言
 7. confidence: 分析的置信度（0-1之间的数值）
 
-请确保返回有用的、准确的分析结果。`
+请确保返回有用的、准确的分析结果。只返回json，不要包含任何额外的文本说明。`
 
 	// 统一读取文档内容（无论是本地文件还是HTTP URL）
 	content, err := a.client.readFileContent(filePath)

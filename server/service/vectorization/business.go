@@ -2,7 +2,6 @@ package vectorization
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -114,16 +113,13 @@ func (s *BusinessService) processFileVectorizationSync(fileID uint, file *exampl
 
 // doVectorization 执行向量化操作
 func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUploadAndDownload) error {
-	// 构建文档内容
 	content := s.buildDocumentContent(file)
 
-	// 获取默认知识库ID
 	defaultDatasetID, ok := global.GVA_CONFIG.Vectorization.Settings["default_dataset_id"].(string)
 	if !ok || defaultDatasetID == "" {
 		return fmt.Errorf("未配置默认知识库ID")
 	}
 
-	// 构建上传请求
 	req := &vectorization.UploadDocumentRequest{
 		KnowledgeBaseID: defaultDatasetID,
 		Name:            file.Name,
@@ -160,57 +156,57 @@ func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUplo
 	return nil
 }
 
-// buildDocumentContent 构建文档内容
 func (s *BusinessService) buildDocumentContent(file *example.ExaFileUploadAndDownload) string {
-	var content strings.Builder
-
-	// 文件基本信息
-	content.WriteString(fmt.Sprintf("# %s\n\n", file.Name))
-	content.WriteString(fmt.Sprintf("**文件类型**: %s\n", file.Metadata.ContentType))
-	content.WriteString(fmt.Sprintf("**文件大小**: %d bytes\n", file.Metadata.FileSize))
-
-	if file.Metadata.Language != "" {
-		content.WriteString(fmt.Sprintf("**语言**: %s\n", file.Metadata.Language))
-	}
-
-	if file.Metadata.Category != "" {
-		content.WriteString(fmt.Sprintf("**分类**: %s\n", file.Metadata.Category))
-	}
-
-	content.WriteString("\n")
-
-	// AI生成的描述
-	if file.Metadata.Description != "" {
-		content.WriteString(fmt.Sprintf("## 内容描述\n%s\n\n", file.Metadata.Description))
-	}
-
-	// 提取的文本内容
-	if file.Metadata.DetectedText != "" {
-		content.WriteString(fmt.Sprintf("## 文本内容\n%s\n\n", file.Metadata.DetectedText))
-	}
-
-	// 标签
-	if len(file.Metadata.Tags) > 0 {
-		content.WriteString(fmt.Sprintf("## 标签\n%s\n\n", strings.Join(file.Metadata.Tags, ", ")))
-	}
-
-	// 检测到的对象
-	if len(file.Metadata.Objects) > 0 {
-		content.WriteString(fmt.Sprintf("## 检测对象\n%s\n\n", strings.Join(file.Metadata.Objects, ", ")))
-	}
-
-	// 图片尺寸信息
-	if file.Metadata.Dimensions != nil {
-		content.WriteString(fmt.Sprintf("## 图片信息\n宽度: %d像素\n高度: %d像素\n\n",
-			file.Metadata.Dimensions.Width, file.Metadata.Dimensions.Height))
-	}
+	//var content strings.Builder
+	//
+	//// 文件基本信息
+	//content.WriteString(fmt.Sprintf("# %s\n\n", file.Name))
+	//content.WriteString(fmt.Sprintf("**文件类型**: %s\n", file.Metadata.ContentType))
+	//content.WriteString(fmt.Sprintf("**文件大小**: %d bytes\n", file.Metadata.FileSize))
+	//
+	//if file.Metadata.Language != "" {
+	//	content.WriteString(fmt.Sprintf("**语言**: %s\n", file.Metadata.Language))
+	//}
+	//
+	//if file.Metadata.Category != "" {
+	//	content.WriteString(fmt.Sprintf("**分类**: %s\n", file.Metadata.Category))
+	//}
+	//
+	//content.WriteString("\n")
+	//
+	//// AI生成的描述
+	//if file.Metadata.Description != "" {
+	//	content.WriteString(fmt.Sprintf("## 内容描述\n%s\n\n", file.Metadata.Description))
+	//}
+	//
+	//// 提取的文本内容
+	//if file.Metadata.DetectedText != "" {
+	//	content.WriteString(fmt.Sprintf("## 文本内容\n%s\n\n", file.Metadata.DetectedText))
+	//}
+	//
+	//// 标签
+	//if len(file.Metadata.Tags) > 0 {
+	//	content.WriteString(fmt.Sprintf("## 标签\n%s\n\n", strings.Join(file.Metadata.Tags, ", ")))
+	//}
+	//
+	//// 检测到的对象
+	//if len(file.Metadata.Objects) > 0 {
+	//	content.WriteString(fmt.Sprintf("## 检测对象\n%s\n\n", strings.Join(file.Metadata.Objects, ", ")))
+	//}
+	//
+	//// 图片尺寸信息
+	//if file.Metadata.Dimensions != nil {
+	//	content.WriteString(fmt.Sprintf("## 图片信息\n宽度: %d像素\n高度: %d像素\n\n",
+	//		file.Metadata.Dimensions.Width, file.Metadata.Dimensions.Height))
+	//}
 
 	// 置信度信息
-	if file.Metadata.Confidence > 0 {
-		content.WriteString(fmt.Sprintf("## AI分析置信度\n%.2f%%\n\n", file.Metadata.Confidence*100))
-	}
+	//if file.Metadata.Confidence > 0 {
+	//	content.WriteString(fmt.Sprintf("## AI分析置信度\n%.2f%%\n\n", file.Metadata.Confidence*100))
+	//}
 
-	return content.String()
+	//return content.String()
+	return file.Metadata.Description
 }
 
 // updateVectorizationStatus 更新向量化状态（已废弃，请使用statusUpdater）
