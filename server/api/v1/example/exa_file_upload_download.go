@@ -65,7 +65,7 @@ func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 // @Summary   删除文件
 // @Security  ApiKeyAuth
 // @Produce   application/json
-// @Param     data  body      example.ExaFileUploadAndDownload  true  "传入文件里面id即可"
+// @Param     data  body      request.ExaFileIDRequest  true  "传入文件里面id即可"
 // @Success   200   {object}  response.Response{msg=string}     "删除文件"
 // @Router    /fileUploadAndDownload/deleteFile [post]
 func (b *FileUploadAndDownloadApi) DeleteFile(c *gin.Context) {
