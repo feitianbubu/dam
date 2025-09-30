@@ -43,7 +43,7 @@ func (p *FileProcessorImpl) ProcessFile(fileID uint) error {
 
 // processFileAsync 异步处理文件
 func (p *FileProcessorImpl) processFileAsync(fileID uint) error {
-	global.GVA_LOG.Info("开始异步处理文件", zap.Uint64("fileID", uint64(fileID)))
+	global.GVA_LOG.Info("开始处理文件", zap.Uint64("fileID", uint64(fileID)))
 
 	// 获取文件信息
 	var file example.ExaFileUploadAndDownload
