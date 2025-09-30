@@ -163,6 +163,16 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
 	}
 	if noSave == "0" {
+		// 检查是否已存在相同key的记录
+		var existingFile example.ExaFileUploadAndDownload
+		checkErr := global.GVA_DB.Where("`key` = ?", key).First(&existingFile).Error
+		if checkErr == nil {
+			global.GVA_LOG.Info("文件key已存在，返回现有记录",
+				zap.String("key", key),
+				zap.Uint("existingFileID", existingFile.ID))
+			return existingFile, nil
+		}
+
 		err = e.Upload(&f)
 		if err != nil {
 			return f, err
