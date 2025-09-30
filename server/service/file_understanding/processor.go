@@ -35,13 +35,9 @@ func NewFileProcessor(understandingService FileUnderstandingService) FileProcess
 
 // ProcessFile 处理文件，异步调用多模态API并更新数据库
 func (p *FileProcessorImpl) ProcessFile(fileID uint) error {
-	// 启动异步处理
-	go func() {
-		if err := p.processFileAsync(fileID); err != nil {
-			global.GVA_LOG.Error("文件处理失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
-		}
-	}()
-
+	if err := p.processFileAsync(fileID); err != nil {
+		global.GVA_LOG.Error("文件处理失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
+	}
 	return nil
 }
 
@@ -88,11 +84,8 @@ func (p *FileProcessorImpl) processFileAsync(fileID uint) error {
 // triggerVectorization 触发向量化处理
 func (p *FileProcessorImpl) triggerVectorization(fileID uint) {
 	if p.vectorizationIntegration != nil && p.vectorizationIntegration.IsEnabled() {
-		// 异步触发向量化处理
-		go func() {
-			global.GVA_LOG.Info("开始向量化处理", zap.Uint64("fileID", uint64(fileID)))
-			p.vectorizationIntegration.ProcessFileVectorization(fileID)
-		}()
+		global.GVA_LOG.Info("开始向量化处理", zap.Uint64("fileID", uint64(fileID)))
+		p.vectorizationIntegration.ProcessFileVectorization(fileID)
 	} else {
 		global.GVA_LOG.Debug("向量化服务未启用或未初始化", zap.Uint64("fileID", uint64(fileID)))
 	}

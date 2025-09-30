@@ -191,13 +191,10 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 			return f, err
 		}
 
-		// 文件上传成功后，异步处理文件理解
-		// 确保f.ID在Upload后有值
 		fileID := f.ID
 		global.GVA_LOG.Info("文件上传成功，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
 
-		// 启动异步处理，确保fileID正确传递
-		go e.ProcessFileWithRetry(fileID, 3, "自动文件处理")
+		e.ProcessFileWithRetry(fileID, 3, "自动文件处理")
 
 		return f, nil
 	}
