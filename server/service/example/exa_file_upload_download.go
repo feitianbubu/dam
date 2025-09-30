@@ -104,6 +104,19 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	if err = oss.DeleteFile(fileFromDb.Key); err != nil {
 		return errors.New("文件删除失败")
 	}
+
+	if fileFromDb.VectorizationDocumentID != "" {
+		vectorService := e.GetVectorizationService()
+		if vectorService != nil {
+			if delErr := vectorService.DeleteDocument(fileFromDb.VectorizationDocumentID); delErr != nil {
+				global.GVA_LOG.Error("删除向量化文档失败",
+					zap.Uint("fileID", fileFromDb.ID),
+					zap.String("documentID", fileFromDb.VectorizationDocumentID),
+					zap.Error(delErr))
+			}
+		}
+	}
+
 	err = global.GVA_DB.Where("id = ?", file.ID).Unscoped().Delete(&file).Error
 	return err
 }
