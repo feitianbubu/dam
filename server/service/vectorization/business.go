@@ -118,8 +118,15 @@ func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUplo
 	content := s.buildDocumentContent(file)
 
 	// 从分类表获取知识库ID
+	// 如果 classId 为 0，使用默认分类（ID=1）
+	classId := file.ClassId
+	if classId == 0 {
+		classId = 1
+		global.GVA_LOG.Debug("文件未指定分类，使用默认分类", zap.Uint64("fileID", uint64(fileID)))
+	}
+
 	var category example.ExaAttachmentCategory
-	if err := global.GVA_DB.Where("id = ?", file.ClassId).First(&category).Error; err != nil {
+	if err := global.GVA_DB.Where("id = ?", classId).First(&category).Error; err != nil {
 		return fmt.Errorf("获取分类信息失败: %w", err)
 	}
 
