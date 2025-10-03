@@ -69,8 +69,8 @@ func getConfigPath() (config string) {
 
 	_, err := os.Stat(config)
 	if err != nil || os.IsNotExist(err) {
-		config = internal.ConfigDefaultFile
-		fmt.Printf("配置文件路径不存在, 使用默认配置文件路径: %s\n", config)
+		//config = internal.ConfigDefaultFile
+		//fmt.Printf("配置文件路径不存在, 使用默认配置文件路径: %s\n", config)
 		if _, err := os.Stat(config); err != nil || os.IsNotExist(err) {
 			config = path.Join("..", config)
 			fmt.Printf("默认配置文件路径不存在, 使用备用配置文件路径: %s\n", config)
