@@ -76,6 +76,7 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 	} else {
 		filePathres = global.GVA_CONFIG.Minio.BasePath + "/" + time.Now().Format("2006-01-02") + "/" + filename
 	}
+	filePathres = filename
 
 	// 根据文件扩展名检测 MIME 类型
 	contentType := mime.TypeByExtension(ext)

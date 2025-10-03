@@ -3,6 +3,7 @@ package request
 import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 )
 
 // VectorSearchParams 向量搜索参数
@@ -43,12 +44,28 @@ func (r *ExaFileSearchRequest) GetSearchDefaults() {
 	}
 }
 
-// getDefaultKnowledgeIDs 获取默认知识库ID列表
 func (r *ExaFileSearchRequest) getDefaultKnowledgeIDs() []string {
-	// 从配置文件获取默认dataset_id作为知识库ID
-	if defaultDatasetID, ok := global.GVA_CONFIG.Vectorization.Settings["default_dataset_id"].(string); ok && defaultDatasetID != "" {
-		return []string{defaultDatasetID}
+	// 如果指定了classId，返回该分类的知识库ID
+	if r.ClassId > 0 {
+		var category example.ExaAttachmentCategory
+		if err := global.GVA_DB.Where("id = ?", r.ClassId).First(&category).Error; err == nil && category.KnowledgeID != "" {
+			return []string{category.KnowledgeID}
+		}
+		return []string{}
 	}
+
+	// 如果classId未填，返回所有分类的知识库ID
+	var categories []example.ExaAttachmentCategory
+	if err := global.GVA_DB.Where("knowledge_id != ?", "").Find(&categories).Error; err == nil {
+		knowledgeIDs := make([]string, 0, len(categories))
+		for _, category := range categories {
+			if category.KnowledgeID != "" {
+				knowledgeIDs = append(knowledgeIDs, category.KnowledgeID)
+			}
+		}
+		return knowledgeIDs
+	}
+
 	return []string{}
 }
 

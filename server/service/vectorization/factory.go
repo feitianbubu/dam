@@ -3,6 +3,7 @@ package vectorization
 import (
 	"fmt"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/pkg/vectorization"
 	"github.com/flipped-aurora/gin-vue-admin/server/service/vectorization/providers/coze"
 )
@@ -31,6 +32,20 @@ func NewVectorizationService(config *Config) (vectorization.VectorizationService
 	default:
 		return nil, fmt.Errorf("unsupported vectorization provider: %s", config.Provider)
 	}
+}
+
+// NewVectorizationServiceFromGlobalConfig 从全局配置创建向量化服务实例
+func NewVectorizationServiceFromGlobalConfig() (vectorization.VectorizationService, error) {
+	if !global.GVA_CONFIG.Vectorization.Enable {
+		return nil, fmt.Errorf("vectorization service is disabled")
+	}
+
+	config := &Config{
+		Provider: vectorization.Provider(global.GVA_CONFIG.Vectorization.Provider),
+		Settings: global.GVA_CONFIG.Vectorization.Settings,
+	}
+
+	return NewVectorizationService(config)
 }
 
 // ValidateConfig 验证配置

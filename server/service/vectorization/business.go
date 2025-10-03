@@ -2,7 +2,6 @@ package vectorization
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -14,12 +13,9 @@ import (
 
 // BusinessService 向量化业务服务
 type BusinessService struct {
-	vectorService          vectorization.VectorizationService
-	config                 *Config
-	statusUpdater          *common.VectorizationStatusUpdater
-	knowledgeBaseID        string     // 缓存的知识库ID
-	knowledgeBaseInitOnce  sync.Once  // 保证只初始化一次
-	knowledgeBaseInitError error      // 保存初始化错误
+	vectorService vectorization.VectorizationService
+	config        *Config
+	statusUpdater *common.VectorizationStatusUpdater
 }
 
 // NewBusinessService 创建向量化业务服务
@@ -96,22 +92,6 @@ func (s *BusinessService) processFileVectorizationSync(fileID uint, file *exampl
 			return s.statusUpdater.UpdateVectorizationStatusToCompleted(fileID, global.GVA_CONFIG.Vectorization.Provider)
 		}
 
-		// 失败, 判断知识库是否存在, 如果不存在则重置缓存并重试
-		if s.isKnowledgeBaseNotFoundError(err) {
-			global.GVA_LOG.Info("检测到知识库可能不存在，重置缓存并重试",
-				zap.Uint64("fileID", uint64(fileID)),
-				zap.Error(err))
-
-			// 重置知识库缓存，下次会重新查找或创建
-			s.resetKnowledgeBase()
-
-			// 立即重试一次（不计入重试次数）
-			err = s.doVectorization(fileID, file)
-			if err == nil {
-				return s.statusUpdater.UpdateVectorizationStatusToCompleted(fileID, global.GVA_CONFIG.Vectorization.Provider)
-			}
-		}
-
 		global.GVA_LOG.Warn("向量化处理失败，尝试重试",
 			zap.Uint64("fileID", uint64(fileID)),
 			zap.Int("attempt", attempt),
@@ -137,14 +117,18 @@ func (s *BusinessService) processFileVectorizationSync(fileID uint, file *exampl
 func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUploadAndDownload) error {
 	content := s.buildDocumentContent(file)
 
-	// 获取或创建知识库
-	knowledgeBaseID, err := s.getOrCreateKnowledgeBase()
-	if err != nil {
-		return fmt.Errorf("获取知识库失败: %w", err)
+	// 从分类表获取知识库ID
+	var category example.ExaAttachmentCategory
+	if err := global.GVA_DB.Where("id = ?", file.ClassId).First(&category).Error; err != nil {
+		return fmt.Errorf("获取分类信息失败: %w", err)
+	}
+
+	if category.KnowledgeID == "" {
+		return fmt.Errorf("分类尚未创建知识库，无法进行向量化")
 	}
 
 	req := &vectorization.UploadDocumentRequest{
-		KnowledgeBaseID: knowledgeBaseID,
+		KnowledgeBaseID: category.KnowledgeID,
 		Name:            file.Name,
 		Content:         content,
 		ContentType:     file.Metadata.ContentType,
@@ -174,7 +158,7 @@ func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUplo
 	global.GVA_LOG.Info("文档向量化上传成功",
 		zap.Uint64("fileID", uint64(fileID)),
 		zap.String("documentID", document.ID),
-		zap.String("knowledgeBaseID", knowledgeBaseID),
+		zap.String("knowledgeBaseID", category.KnowledgeID),
 		zap.String("provider", global.GVA_CONFIG.Vectorization.Provider))
 
 	return nil
@@ -240,77 +224,6 @@ func (s *BusinessService) isKnowledgeBaseNotFoundError(err error) bool {
 	return true // 目前coze只会返回500错误
 }
 
-// generateDefaultKnowledgeBaseName 生成默认知识库名称
-func (s *BusinessService) generateDefaultKnowledgeBaseName() string {
-	bucketName := global.GVA_CONFIG.Minio.BucketName
-	if bucketName == "" {
-		bucketName = "dam_default"
-	}
-	return bucketName + "_vector"
-}
-
-// findOrCreateKnowledgeBaseByName 根据名称查找或创建知识库
-func (s *BusinessService) findOrCreateKnowledgeBaseByName() (string, error) {
-	kbName := s.generateDefaultKnowledgeBaseName()
-
-	// 查找知识库列表
-	list, err := s.vectorService.ListKnowledgeBases(&vectorization.ListKnowledgeBasesRequest{
-		Page: 1,
-		Size: 100, // 获取前100个知识库
-	})
-	if err != nil {
-		return "", fmt.Errorf("查询知识库列表失败: %w", err)
-	}
-
-	// 查找匹配的知识库
-	for _, kb := range list.Items {
-		if kb.Name == kbName {
-			global.GVA_LOG.Info("找到已存在的知识库",
-				zap.String("knowledgeBaseID", kb.ID),
-				zap.String("knowledgeBaseName", kb.Name))
-			return kb.ID, nil
-		}
-	}
-
-	// 未找到，创建新知识库
-	global.GVA_LOG.Info("知识库不存在，开始创建",
-		zap.String("knowledgeBaseName", kbName))
-
-	req := &vectorization.CreateKnowledgeBaseRequest{
-		Name:        kbName,
-		Description: "Dam系统自动创建的默认知识库，用于存储文件向量化数据",
-		FormatType:  vectorization.FormatTypeText,
-	}
-
-	kb, err := s.vectorService.CreateKnowledgeBase(req)
-	if err != nil {
-		return "", fmt.Errorf("创建知识库失败: %w", err)
-	}
-
-	global.GVA_LOG.Info("知识库创建成功",
-		zap.String("knowledgeBaseID", kb.ID),
-		zap.String("knowledgeBaseName", kb.Name))
-
-	return kb.ID, nil
-}
-
-// getOrCreateKnowledgeBase 获取或创建知识库（使用sync.Once保证只执行一次）
-func (s *BusinessService) getOrCreateKnowledgeBase() (string, error) {
-	s.knowledgeBaseInitOnce.Do(func() {
-		s.knowledgeBaseID, s.knowledgeBaseInitError = s.findOrCreateKnowledgeBaseByName()
-	})
-
-	return s.knowledgeBaseID, s.knowledgeBaseInitError
-}
-
-// resetKnowledgeBase 重置知识库缓存（用于知识库被删除后重新初始化）
-func (s *BusinessService) resetKnowledgeBase() {
-	s.knowledgeBaseInitOnce = sync.Once{}
-	s.knowledgeBaseID = ""
-	s.knowledgeBaseInitError = nil
-	global.GVA_LOG.Info("知识库缓存已重置")
-}
-
 // updateVectorizationStatus 更新向量化状态（已废弃，请使用statusUpdater）
 // Deprecated: 使用statusUpdater.UpdateVectorizationStatus替代
 func (s *BusinessService) updateVectorizationStatus(fileID uint, status, errorMsg, provider string) error {
@@ -350,18 +263,28 @@ func (s *BusinessService) RetryVectorization(fileID uint) error {
 }
 
 // SearchSimilarFiles 搜索相似文件（基于向量化）
-func (s *BusinessService) SearchSimilarFiles(query string, topK int) (*vectorization.SearchResult, error) {
-	// 获取或创建知识库
-	knowledgeBaseID, err := s.getOrCreateKnowledgeBase()
-	if err != nil {
-		return nil, fmt.Errorf("获取知识库失败: %w", err)
+// classId: 可选参数，如果指定则只在该分类的知识库中搜索，为0表示需要跨所有知识库搜索
+func (s *BusinessService) SearchSimilarFiles(query string, topK int, classId int) (*vectorization.SearchResult, error) {
+	// 如果指定了分类ID，则从分类表获取知识库ID
+	if classId > 0 {
+		var category example.ExaAttachmentCategory
+		if err := global.GVA_DB.Where("id = ?", classId).First(&category).Error; err != nil {
+			return nil, fmt.Errorf("获取分类信息失败: %w", err)
+		}
+
+		if category.KnowledgeID == "" {
+			return nil, fmt.Errorf("该分类尚未创建知识库")
+		}
+
+		req := &vectorization.SearchRequest{
+			Query:           query,
+			KnowledgeBaseID: category.KnowledgeID,
+			TopK:            topK,
+		}
+
+		return s.vectorService.SearchDocuments(req)
 	}
 
-	req := &vectorization.SearchRequest{
-		Query:           query,
-		KnowledgeBaseID: knowledgeBaseID,
-		TopK:            topK,
-	}
-
-	return s.vectorService.SearchDocuments(req)
+	// classId为0或未指定：需要跨所有知识库搜索（暂不支持）
+	return nil, fmt.Errorf("跨分类搜索功能暂未实现，请指定分类ID")
 }
