@@ -29,6 +29,9 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	noSave := c.DefaultQuery("noSave", "0")
 	_, header, err := c.Request.FormFile("file")
 	classId, _ := strconv.Atoi(c.DefaultPostForm("classId", "0"))
+	if classId == 0 {
+		classId = 1 // 默认放在默认分类
+	}
 	if err != nil {
 		global.GVA_LOG.Error("接收文件失败!", zap.Error(err))
 		response.FailWithMessage("接收文件失败", c)

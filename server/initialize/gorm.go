@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"os"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -82,4 +83,32 @@ func RegisterTables() {
 		os.Exit(0)
 	}
 	global.GVA_LOG.Info("register table success")
+
+	// 初始化默认数据
+	initDefaultData()
+}
+
+// initDefaultData 初始化系统默认数据
+func initDefaultData() {
+	// 复用 default_category 的初始化逻辑
+	initializer := &initDefaultCategory{}
+
+	// 检查数据是否已存在
+	if initializer.DataInserted(createContext()) {
+		global.GVA_LOG.Debug("default category already exists, skip initialization")
+		return
+	}
+
+	// 执行初始化
+	ctx := createContext()
+	if _, err := initializer.InitializeData(ctx); err != nil {
+		global.GVA_LOG.Warn("initialize default category failed", zap.Error(err))
+	}
+}
+
+// createContext 创建初始化所需的 context
+func createContext() context.Context {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", global.GVA_DB)
+	return ctx
 }
