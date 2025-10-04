@@ -161,6 +161,20 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //@return: file model.ExaFileUploadAndDownload, err error
 
 func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
+	// 上传前先检查文件名是否已存在
+	if noSave == "0" {
+		var existingFile example.ExaFileUploadAndDownload
+		checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&existingFile).Error
+		if checkErr == nil {
+			// 文件名已存在，返回错误
+			global.GVA_LOG.Warn("文件名已存在，禁止上传",
+				zap.String("filename", header.Filename),
+				zap.Int("classId", classId),
+				zap.Uint("existingFileID", existingFile.ID))
+			return file, errors.New("文件名已存在")
+		}
+	}
+
 	oss := upload.NewOss()
 	filePath, key, uploadErr := oss.UploadFile(header)
 	if uploadErr != nil {
@@ -176,16 +190,6 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
 	}
 	if noSave == "0" {
-		// 检查是否已存在相同key的记录
-		var existingFile example.ExaFileUploadAndDownload
-		checkErr := global.GVA_DB.Where("`key` = ?", key).First(&existingFile).Error
-		if checkErr == nil {
-			global.GVA_LOG.Info("文件key已存在，返回现有记录",
-				zap.String("key", key),
-				zap.Uint("existingFileID", existingFile.ID))
-			return existingFile, nil
-		}
-
 		err = e.Upload(&f)
 		if err != nil {
 			return f, err

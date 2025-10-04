@@ -50,23 +50,23 @@
     const isVideo = isVideoMime(file.type)
     const isImage = isImageMime(file.type)
     let pass = true
-    if (!isVideo && !isImage) {
-      ElMessage.error(
-        '上传图片只能是 jpg,png,svg,webp 格式, 上传视频只能是 mp4,webm 格式!'
-      )
-      fullscreenLoading.value = false
-      pass = false
-    }
-    if (!isLt5M && isVideo) {
-      ElMessage.error('上传视频大小不能超过 5MB')
-      fullscreenLoading.value = false
-      pass = false
-    }
-    if (!isLt500K && isImage) {
-      ElMessage.error('未压缩的上传图片大小不能超过 500KB，请使用压缩上传')
-      fullscreenLoading.value = false
-      pass = false
-    }
+    // if (!isVideo && !isImage) {
+    //   ElMessage.error(
+    //     '上传图片只能是 jpg,png,svg,webp 格式, 上传视频只能是 mp4,webm 格式!'
+    //   )
+    //   fullscreenLoading.value = false
+    //   pass = false
+    // }
+    // if (!isLt5M && isVideo) {
+    //   ElMessage.error('上传视频大小不能超过 5MB')
+    //   fullscreenLoading.value = false
+    //   pass = false
+    // }
+    // if (!isLt500K && isImage) {
+    //   ElMessage.error('未压缩的上传图片大小不能超过 500KB，请使用压缩上传')
+    //   fullscreenLoading.value = false
+    //   pass = false
+    // }
 
     console.log('upload file check result: ', pass)
 

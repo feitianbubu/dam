@@ -1,6 +1,7 @@
 package example
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -40,7 +41,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	file, err = fileUploadAndDownloadService.UploadFile(header, noSave, classId) // 文件上传后拿到文件路径
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
-		response.FailWithMessage("上传文件失败", c)
+		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
 		return
 	}
 	response.OkWithDetailed(exampleRes.ExaFileResponse{File: file}, "上传成功", c)
