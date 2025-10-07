@@ -1,0 +1,533 @@
+package system
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	systemRes "github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
+	"github.com/google/uuid"
+)
+
+type OidcService struct{}
+
+var OidcServiceApp = new(OidcService)
+
+// StorageAdapter 存储适配器接口
+type StorageAdapter interface {
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
+	Del(ctx context.Context, key string) error
+	Exists(ctx context.Context, key string) (int64, error)
+	Incr(ctx context.Context, key string) error
+	PTTL(ctx context.Context, key string) (time.Duration, error)
+	TxPipeline() interface{}
+}
+
+// RedisStorageAdapter Redis存储适配器
+type RedisStorageAdapter struct{}
+
+func (r *RedisStorageAdapter) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return global.GVA_REDIS.Set(ctx, key, value, expiration).Err()
+}
+
+func (r *RedisStorageAdapter) Get(ctx context.Context, key string) (string, error) {
+	return global.GVA_REDIS.Get(ctx, key).Result()
+}
+
+func (r *RedisStorageAdapter) Del(ctx context.Context, key string) error {
+	return global.GVA_REDIS.Del(ctx, key).Err()
+}
+
+func (r *RedisStorageAdapter) Exists(ctx context.Context, key string) (int64, error) {
+	return global.GVA_REDIS.Exists(ctx, key).Result()
+}
+
+func (r *RedisStorageAdapter) Incr(ctx context.Context, key string) error {
+	return global.GVA_REDIS.Incr(ctx, key).Err()
+}
+
+func (r *RedisStorageAdapter) PTTL(ctx context.Context, key string) (time.Duration, error) {
+	return global.GVA_REDIS.PTTL(ctx, key).Result()
+}
+
+func (r *RedisStorageAdapter) TxPipeline() interface{} {
+	return global.GVA_REDIS.TxPipeline()
+}
+
+// MemoryStorageAdapter 内存存储适配器
+type MemoryStorageAdapter struct{}
+
+func (m *MemoryStorageAdapter) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return GetMemoryStore().Set(ctx, key, value, expiration)
+}
+
+func (m *MemoryStorageAdapter) Get(ctx context.Context, key string) (string, error) {
+	return GetMemoryStore().Get(ctx, key)
+}
+
+func (m *MemoryStorageAdapter) Del(ctx context.Context, key string) error {
+	return GetMemoryStore().Del(ctx, key)
+}
+
+func (m *MemoryStorageAdapter) Exists(ctx context.Context, key string) (int64, error) {
+	return GetMemoryStore().Exists(ctx, key)
+}
+
+func (m *MemoryStorageAdapter) Incr(ctx context.Context, key string) error {
+	return GetMemoryStore().Incr(ctx, key)
+}
+
+func (m *MemoryStorageAdapter) PTTL(ctx context.Context, key string) (time.Duration, error) {
+	return GetMemoryStore().PTTL(ctx, key)
+}
+
+func (m *MemoryStorageAdapter) TxPipeline() interface{} {
+	return GetMemoryStore().TxPipeline()
+}
+
+// GetStorage 获取存储适配器
+func (o *OidcService) GetStorage() StorageAdapter {
+	if global.GVA_CONFIG.System.UseRedis && global.GVA_REDIS != nil {
+		return &RedisStorageAdapter{}
+	}
+	return &MemoryStorageAdapter{}
+}
+
+// OidcConfig OIDC配置结构
+type OidcConfig struct {
+	ClientID      string
+	ClientSecret  string
+	RedirectURL   string
+	Scopes        string
+	AuthURL       string
+	TokenURL      string
+	UserInfoURL   string
+	EndSessionURL string
+	DiscoveryURL  string
+}
+
+// OidcDiscoveryResponse OIDC发现响应
+type OidcDiscoveryResponse struct {
+	Issuer        string   `json:"issuer"`
+	AuthURL       string   `json:"authorization_endpoint"`
+	TokenURL      string   `json:"token_endpoint"`
+	UserInfoURL   string   `json:"userinfo_endpoint"`
+	EndSessionURL string   `json:"end_session_endpoint"`
+	JWKSURL       string   `json:"jwks_uri"`
+	ResponseTypes []string `json:"response_types_supported"`
+	GrantTypes    []string `json:"grant_types_supported"`
+	Scopes        []string `json:"scopes_supported"`
+}
+
+// OidcTokenResponse OIDC令牌响应
+type OidcTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int64  `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+}
+
+// OidcUserInfo OIDC用户信息
+type OidcUserInfo struct {
+	Sub               string `json:"sub"`
+	Username          string `json:"username"`
+	Name              string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
+	Email             string `json:"email"`
+	Picture           string `json:"picture"`
+	Nickname          string `json:"nickname"`
+	EmailVerified     bool   `json:"email_verified"`
+}
+
+// GetAuthURL 获取授权URL
+func (o *OidcService) GetAuthURL(provider string) (*systemRes.OidcLoginResponse, error) {
+	if !global.GVA_CONFIG.OIDC.Enabled {
+		return nil, fmt.Errorf("OIDC is not enabled")
+	}
+
+	// 生成状态参数
+	state, err := o.generateState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate state: %v", err)
+	}
+
+	// 存储状态（10分钟过期）
+	ctx := context.Background()
+	storage := o.GetStorage()
+	err = storage.Set(ctx, fmt.Sprintf("oidc_state:%s", state), provider, 10*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store state: %v", err)
+	}
+
+	config := o.getOidcConfig(provider)
+	if config == nil {
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
+
+	// 构建授权URL
+	authURL, err := o.buildAuthURL(config, state)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build auth URL: %v", err)
+	}
+
+	return &systemRes.OidcLoginResponse{
+		AuthURL: authURL,
+		State:   state,
+	}, nil
+}
+
+// HandleCallback 处理OIDC回调
+func (o *OidcService) HandleCallback(req systemReq.OidcCallbackRequest) (*system.SysUser, error) {
+	// 验证状态参数
+	ctx := context.Background()
+	storage := o.GetStorage()
+	provider, err := storage.Get(ctx, fmt.Sprintf("oidc_state:%s", req.State))
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired state: %v", err)
+	}
+
+	// 删除状态参数
+	storage.Del(ctx, fmt.Sprintf("oidc_state:%s", req.State))
+
+	config := o.getOidcConfig(provider)
+	if config == nil {
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
+
+	// 交换授权码获取令牌
+	tokenResp, err := o.exchangeCodeForToken(config, req.Code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange code for token: %v", err)
+	}
+
+	// 获取用户信息
+	userInfo, err := o.getUserInfo(config, tokenResp.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user info: %v", err)
+	}
+
+	// 查找或创建用户
+	user, err := o.findOrCreateUser(provider, userInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find or create user: %v", err)
+	}
+
+	return user, nil
+}
+
+// getOidcConfig 获取OIDC配置
+func (o *OidcService) getOidcConfig(provider string) *OidcConfig {
+	oidcConfig := global.GVA_CONFIG.OIDC
+
+	if oidcConfig.Provider != provider {
+		return nil
+	}
+
+	config := &OidcConfig{
+		ClientID:     oidcConfig.ClientID,
+		ClientSecret: oidcConfig.ClientSecret,
+		RedirectURL:  oidcConfig.RedirectURL,
+		Scopes:       oidcConfig.Scopes,
+		DiscoveryURL: oidcConfig.DiscoveryURL,
+	}
+
+	// 如果有发现端点，则自动获取配置
+	if oidcConfig.DiscoveryURL != "" {
+		discoveryConfig, err := o.fetchDiscoveryConfig(oidcConfig.DiscoveryURL)
+		if err != nil {
+			// 记录错误但不阻止流程，使用手动配置的URL
+			fmt.Printf("Failed to fetch discovery config: %v\n", err)
+		} else {
+			config.AuthURL = discoveryConfig.AuthURL
+			config.TokenURL = discoveryConfig.TokenURL
+			config.UserInfoURL = discoveryConfig.UserInfoURL
+			config.EndSessionURL = discoveryConfig.EndSessionURL
+		}
+	} else {
+		// 使用手动配置的URL
+		config.AuthURL = oidcConfig.AuthURL
+		config.TokenURL = oidcConfig.TokenURL
+		config.UserInfoURL = oidcConfig.UserInfoURL
+		config.EndSessionURL = oidcConfig.EndSessionURL
+	}
+
+	return config
+}
+
+// fetchDiscoveryConfig 获取OIDC发现配置
+func (o *OidcService) fetchDiscoveryConfig(discoveryURL string) (*OidcDiscoveryResponse, error) {
+	resp, err := http.Get(discoveryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("discovery request failed: %s", string(body))
+	}
+
+	var discoveryResp OidcDiscoveryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&discoveryResp); err != nil {
+		return nil, err
+	}
+
+	return &discoveryResp, nil
+}
+
+// generateState 生成状态参数
+func (o *OidcService) generateState() (string, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// buildAuthURL 构建授权URL
+func (o *OidcService) buildAuthURL(config *OidcConfig, state string) (string, error) {
+	params := url.Values{}
+	params.Add("response_type", "code")
+	params.Add("client_id", config.ClientID)
+	params.Add("redirect_uri", config.RedirectURL)
+	params.Add("scope", config.Scopes)
+	params.Add("state", state)
+
+	// 生成nonce参数用于防止重放攻击
+	nonce := uuid.New().String()
+	params.Add("nonce", nonce)
+
+	// 存储nonce（10分钟过期）
+	ctx := context.Background()
+	storage := o.GetStorage()
+	err := storage.Set(ctx, fmt.Sprintf("oidc_nonce:%s", nonce), state, 10*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("failed to store nonce: %v", err)
+	}
+
+	// 构建URL，确保参数正确编码但不重复编码
+	authURL, err := url.Parse(config.AuthURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid auth URL: %v", err)
+	}
+
+	// 合并查询参数
+	if authURL.RawQuery != "" {
+		authURL.RawQuery += "&" + params.Encode()
+	} else {
+		authURL.RawQuery = params.Encode()
+	}
+
+	return authURL.String(), nil
+}
+
+// exchangeCodeForToken 交换授权码获取令牌
+func (o *OidcService) exchangeCodeForToken(config *OidcConfig, code string) (*OidcTokenResponse, error) {
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", config.RedirectURL)
+	data.Set("client_id", config.ClientID)
+	data.Set("client_secret", config.ClientSecret)
+
+	resp, err := http.PostForm(config.TokenURL, data)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("token request failed: %s", string(body))
+	}
+
+	var tokenResp OidcTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, err
+	}
+
+	return &tokenResp, nil
+}
+
+// getUserInfo 获取用户信息
+func (o *OidcService) getUserInfo(config *OidcConfig, accessToken string) (*OidcUserInfo, error) {
+	req, err := http.NewRequest("GET", config.UserInfoURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("userinfo request failed: %s", string(body))
+	}
+
+	var userInfo OidcUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, err
+	}
+
+	return &userInfo, nil
+}
+
+// findOrCreateUser 查找或创建用户
+func (o *OidcService) findOrCreateUser(provider string, userInfo *OidcUserInfo) (*system.SysUser, error) {
+	// 查找现有的OIDC用户关联
+	var oidcUser system.SysOidcUser
+	err := global.GVA_DB.Where("provider = ? AND subject = ?", provider, userInfo.Sub).First(&oidcUser).Error
+
+	if err == nil {
+		// 找到现有用户，更新用户信息
+		user := system.SysUser{GVA_MODEL: global.GVA_MODEL{ID: oidcUser.UserID}}
+		if err := global.GVA_DB.Preload("Authorities").Preload("Authority").First(&user).Error; err != nil {
+			return nil, err
+		}
+
+		// 更新OIDC用户信息 - Clinx优先使用username字段
+		oidcUser.Username = userInfo.Username
+		if oidcUser.Username == "" {
+			oidcUser.Username = userInfo.PreferredUsername
+		}
+		if oidcUser.Username == "" {
+			oidcUser.Username = userInfo.Sub
+		}
+		oidcUser.Email = userInfo.Email
+		oidcUser.Nickname = userInfo.Name
+		if oidcUser.Nickname == "" {
+			oidcUser.Nickname = userInfo.Nickname
+		}
+		oidcUser.Avatar = userInfo.Picture
+
+		if err := global.GVA_DB.Save(&oidcUser).Error; err != nil {
+			return nil, err
+		}
+
+		return &user, nil
+	}
+
+	if !global.GVA_CONFIG.OIDC.AutoCreateUser {
+		return nil, fmt.Errorf("user not found and auto-create is disabled")
+	}
+
+	// 创建新用户 - Clinx优先使用username字段
+	user := system.SysUser{
+		Username:  userInfo.Username,
+		NickName:  userInfo.Name,
+		HeaderImg: userInfo.Picture,
+		Enable:    1,
+	}
+
+	if user.Username == "" {
+		user.Username = userInfo.PreferredUsername
+	}
+	if user.Username == "" {
+		user.Username = userInfo.Sub
+	}
+	if user.NickName == "" {
+		user.NickName = userInfo.Nickname
+	}
+
+	// 设置默认密码（随机）
+	user.Password = uuid.New().String()[:16]
+
+	// 创建用户
+	if err := global.GVA_DB.Create(&user).Error; err != nil {
+		return nil, err
+	}
+
+	// 创建OIDC用户关联
+	oidcUser = system.SysOidcUser{
+		Username: user.Username,
+		Email:    userInfo.Email,
+		Nickname: user.NickName,
+		Avatar:   userInfo.Picture,
+		Provider: provider,
+		Subject:  userInfo.Sub,
+		UserID:   user.ID,
+	}
+
+	if err := global.GVA_DB.Create(&oidcUser).Error; err != nil {
+		// 回滚用户创建
+		global.GVA_DB.Delete(&user)
+		return nil, err
+	}
+
+	// 分配默认权限
+	if global.GVA_CONFIG.OIDC.DefaultAuthority > 0 {
+		var authority system.SysAuthority
+		if err := global.GVA_DB.First(&authority, global.GVA_CONFIG.OIDC.DefaultAuthority).Error; err == nil {
+			global.GVA_DB.Create(&system.SysUserAuthority{
+				SysUserId:               user.ID,
+				SysAuthorityAuthorityId: authority.AuthorityId,
+			})
+		}
+	}
+
+	return &user, nil
+}
+
+// UnlinkOidc 解绑OIDC
+func (o *OidcService) UnlinkOidc(userID uint, provider string) error {
+	return global.GVA_DB.Where("user_id = ? AND provider = ?", userID, provider).Delete(&system.SysOidcUser{}).Error
+}
+
+// GetOidcUsers 获取用户的OIDC绑定
+func (o *OidcService) GetOidcUsers(userID uint) ([]system.SysOidcUser, error) {
+	var oidcUsers []system.SysOidcUser
+	err := global.GVA_DB.Where("user_id = ?", userID).Find(&oidcUsers).Error
+	return oidcUsers, err
+}
+
+// GetLogoutURL 获取OIDC登出URL
+func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (string, error) {
+	if !global.GVA_CONFIG.OIDC.Enabled {
+		return "", nil
+	}
+
+	provider := global.GVA_CONFIG.OIDC.Provider
+	config := o.getOidcConfig(provider)
+	if config == nil || config.EndSessionURL == "" {
+		return "", nil // 没有配置登出端点，返回空字符串
+	}
+
+	// 构建登出URL
+	params := url.Values{}
+	if postLogoutRedirectURI != "" {
+		params.Add("post_logout_redirect_uri", postLogoutRedirectURI)
+	}
+
+	logoutURL, err := url.Parse(config.EndSessionURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid end session URL: %v", err)
+	}
+
+	if params.Encode() != "" {
+		if logoutURL.RawQuery != "" {
+			logoutURL.RawQuery += "&" + params.Encode()
+		} else {
+			logoutURL.RawQuery = params.Encode()
+		}
+	}
+
+	return logoutURL.String(), nil
+}

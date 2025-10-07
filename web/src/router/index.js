@@ -16,6 +16,14 @@ const routes = [
     component: () => import('@/view/login/index.vue')
   },
   {
+    path: '/oidc/callback',
+    name: 'OidcCallback',
+    component: () => import('@/view/login/oidcCallback.vue'),
+    meta: {
+      title: 'OIDC回调处理'
+    }
+  },
+  {
     path: '/scanUpload',
     name: 'ScanUpload',
     meta: {

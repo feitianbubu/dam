@@ -43,4 +43,7 @@ type Server struct {
 
 	// 向量化服务配置
 	Vectorization Vectorization `mapstructure:"vectorization" json:"vectorization" yaml:"vectorization"`
+
+	// OIDC配置
+	OIDC OIDC `mapstructure:"oidc" json:"oidc" yaml:"oidc"`
 }

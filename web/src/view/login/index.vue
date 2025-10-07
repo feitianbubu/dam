@@ -76,8 +76,7 @@
                   type="primary"
                   size="large"
                   @click="submitForm"
-                  >登 录</el-button
-                >
+                  >登 录</el-button>
               </el-form-item>
               <el-form-item class="mb-6">
                 <el-button
@@ -85,10 +84,17 @@
                   type="primary"
                   size="large"
                   @click="checkInit"
-                  >前往初始化</el-button
-                >
+                  >前往初始化</el-button>
               </el-form-item>
             </el-form>
+
+          <!-- OIDC第三方登录 -->
+          <div v-if="showOidc" class="mt-6">
+            <el-divider content-position="center">
+              <span class="text-gray-500 text-sm">第三方登录</span>
+            </el-divider>
+            <OidcLogin />
+          </div>
           </div>
         </div>
       </div>
@@ -127,10 +133,12 @@
   import { captcha } from '@/api/user'
   import { checkDB } from '@/api/initdb'
   import BottomInfo from '@/components/bottomInfo/bottomInfo.vue'
-  import { reactive, ref } from 'vue'
+  import OidcLogin from '@/components/oidc/oidcLogin.vue'
+  import { reactive, ref, onMounted } from 'vue'
   import { ElMessage } from 'element-plus'
-  import { useRouter } from 'vue-router'
+  import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/pinia/modules/user'
+  import { oidcCallback } from '@/api/oidc'
   import Logo from '@/components/logo/index.vue'
 
   defineOptions({
@@ -138,6 +146,76 @@
   })
 
   const router = useRouter()
+  const route = useRoute()
+  const userStore = useUserStore()
+
+  // 检查OIDC回调
+  onMounted(async () => {
+    console.log('Login page mounted, checking for OIDC callback...')
+    console.log('Current URL:', window.location.href)
+    console.log('Current route:', route.path)
+
+    // 从URL中提取OIDC回调参数
+    const url = new URL(window.location.href)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+
+    if (code && state) {
+      console.log('Detected OIDC callback parameters, processing...')
+      ElMessage.info('正在处理登录回调...')
+
+      try {
+        // 处理OIDC回调
+        const { data } = await oidcCallback({ code, state })
+        console.log('OIDC callback response:', data)
+
+        // 检查响应数据
+        if (!data || !data.user || !data.token) {
+          throw new Error('OIDC回调返回数据无效: ' + JSON.stringify(data))
+        }
+
+        // 设置用户信息和token
+        await userStore.setUserInfo(data.user)
+        userStore.setToken(data.token)
+        console.log('User info and token set successfully')
+
+        // 初始化路由信息
+        console.log('Initializing async routes...')
+        const { useRouterStore } = await import('@/pinia/modules/router')
+        const routerStore = useRouterStore()
+        await routerStore.SetAsyncRouter()
+        const asyncRouters = routerStore.asyncRouters
+        console.log('Async routes loaded:', asyncRouters.length)
+
+        // 注册到路由表里
+        asyncRouters.forEach((asyncRouter) => {
+          router.addRoute(asyncRouter)
+        })
+        console.log('Routes registered to router')
+
+        ElMessage.success('登录成功')
+
+        // 强制替换URL，移除hash中的login部分
+        window.location.hash = ''
+
+        // 检查是否有重定向地址
+        if (router.currentRoute.value.query.redirect) {
+          await router.replace(router.currentRoute.value.query.redirect)
+          return
+        }
+
+        // 跳转到用户的默认页面
+        if (!router.hasRoute(data.user.authority.defaultRouter)) {
+          ElMessage.error('不存在可以登陆的首页，请联系管理员进行配置: '+ JSON.stringify(data.user))
+          return
+        }
+        await router.replace({ name: data.user.authority.defaultRouter })
+      } catch (error) {
+        console.error('OIDC callback processing failed:', error)
+        ElMessage.error('登录失败: ' + (error.message || '未知错误'))
+      }
+    }
+  })
   const captchaRequiredLength = ref(6)
   // 验证函数
   const checkUsername = (rule, value, callback) => {
@@ -189,6 +267,7 @@
   // 登录相关操作
   const loginForm = ref(null)
   const picPath = ref('')
+  const showOidc = ref(true) // 是否显示OIDC登录（默认开启用于测试）
   const loginFormData = reactive({
     username: 'admin',
     password: '',
@@ -202,7 +281,6 @@
     captcha: [{ validator: checkCaptcha, trigger: 'blur' }]
   })
 
-  const userStore = useUserStore()
   const login = async () => {
     return await userStore.LoginIn(loginFormData)
   }

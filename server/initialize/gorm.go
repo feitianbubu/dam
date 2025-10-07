@@ -65,6 +65,8 @@ func RegisterTables() {
 		system.SysVersion{},
 		system.SysError{},
 
+		system.SysOidcUser{},
+
 		example.ExaFile{},
 		example.ExaCustomer{},
 		example.ExaFileChunk{},

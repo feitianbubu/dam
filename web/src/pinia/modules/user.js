@@ -1,5 +1,6 @@
 import { login, getUserInfo } from '@/api/user'
 import { jsonInBlacklist } from '@/api/jwt'
+import { getOidcLogoutURL } from '@/api/oidc'
 import router from '@/router/index'
 import { ElLoading, ElMessage } from 'element-plus'
 import { defineStore } from 'pinia'
@@ -111,6 +112,27 @@ export const useUserStore = defineStore('user', () => {
   }
   /* 登出*/
   const LoginOut = async () => {
+    // 1. 先尝试调用 OIDC 登出
+    try {
+      const oidcRes = await getOidcLogoutURL()
+      if (oidcRes.code === 0 && oidcRes.data.enabled && oidcRes.data.logoutUrl) {
+        // 使用隐藏的 iframe 静默调用 OIDC 登出 URL
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = oidcRes.data.logoutUrl
+        document.body.appendChild(iframe)
+
+        // 等待 500ms 让 OIDC 登出请求发出
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // 清理 iframe
+        document.body.removeChild(iframe)
+      }
+    } catch (error) {
+      console.warn('OIDC logout failed, continuing with normal logout:', error)
+    }
+
+    // 2. 执行原有的 JWT 黑名单逻辑
     const res = await jsonInBlacklist()
 
     // 登出失败
@@ -143,6 +165,7 @@ export const useUserStore = defineStore('user', () => {
     GetUserInfo,
     LoginIn,
     LoginOut,
+    setUserInfo,
     setToken,
     loadingInstance,
     ClearStorage

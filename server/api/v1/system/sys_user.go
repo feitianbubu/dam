@@ -17,6 +17,10 @@ import (
 	"go.uber.org/zap"
 )
 
+type OidcApi struct{}
+
+var oidcApi = new(OidcApi)
+
 // Login
 // @Tags     Dam
 // @Summary  用户登录
