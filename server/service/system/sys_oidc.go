@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
 	systemRes "github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type OidcService struct{}
@@ -397,95 +399,94 @@ func (o *OidcService) getUserInfo(config *OidcConfig, accessToken string) (*Oidc
 
 // findOrCreateUser 查找或创建用户
 func (o *OidcService) findOrCreateUser(provider string, userInfo *OidcUserInfo) (*system.SysUser, error) {
-	// 查找现有的OIDC用户关联
-	var oidcUser system.SysOidcUser
-	err := global.GVA_DB.Where("provider = ? AND subject = ?", provider, userInfo.Sub).First(&oidcUser).Error
+	getUsername := func() string {
+		if userInfo.PreferredUsername != "" {
+			return userInfo.PreferredUsername
+		}
+		if userInfo.Username != "" {
+			return userInfo.Username
+		}
+		if userInfo.Email != "" {
+			return userInfo.Email
+		}
+		return userInfo.Sub
+	}
 
-	if err == nil {
-		// 找到现有用户，更新用户信息
-		user := system.SysUser{GVA_MODEL: global.GVA_MODEL{ID: oidcUser.UserID}}
-		if err := global.GVA_DB.Preload("Authorities").Preload("Authority").First(&user).Error; err != nil {
+	getNickname := func() string {
+		if userInfo.Nickname != "" {
+			return userInfo.Nickname
+		}
+		if userInfo.Name != "" {
+			return userInfo.Name
+		}
+		if userInfo.PreferredUsername != "" {
+			return userInfo.PreferredUsername
+		}
+		if len(userInfo.Sub) > 8 {
+			return userInfo.Sub[:8]
+		}
+		return userInfo.Sub
+	}
+
+	var oidcUser system.SysOidcUser
+	if err := global.GVA_DB.Where("provider = ? AND subject = ?", provider, userInfo.Sub).First(&oidcUser).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("database error when finding OIDC user: %v", err)
+		}
+
+		if !global.GVA_CONFIG.OIDC.AutoCreateUser {
+			return nil, fmt.Errorf("user not found and auto-create is disabled")
+		}
+
+		user := system.SysUser{
+			UUID:      uuid.New(),
+			Username:  getUsername(),
+			NickName:  getNickname(),
+			HeaderImg: userInfo.Picture,
+			Enable:    1,
+			Password:  uuid.New().String()[:16],
+		}
+
+		user.AuthorityId = global.GVA_CONFIG.OIDC.DefaultAuthority
+
+		if err := global.GVA_DB.Create(&user).Error; err != nil {
 			return nil, err
 		}
 
-		// 更新OIDC用户信息 - Clinx优先使用username字段
-		oidcUser.Username = userInfo.Username
-		if oidcUser.Username == "" {
-			oidcUser.Username = userInfo.PreferredUsername
+		oidcUser = system.SysOidcUser{
+			Username: user.Username,
+			Email:    userInfo.Email,
+			Nickname: user.NickName,
+			Avatar:   userInfo.Picture,
+			Provider: provider,
+			Subject:  userInfo.Sub,
+			UserID:   user.ID,
 		}
-		if oidcUser.Username == "" {
-			oidcUser.Username = userInfo.Sub
-		}
-		oidcUser.Email = userInfo.Email
-		oidcUser.Nickname = userInfo.Name
-		if oidcUser.Nickname == "" {
-			oidcUser.Nickname = userInfo.Nickname
-		}
-		oidcUser.Avatar = userInfo.Picture
 
-		if err := global.GVA_DB.Save(&oidcUser).Error; err != nil {
+		if err := global.GVA_DB.Create(&oidcUser).Error; err != nil {
+			global.GVA_DB.Delete(&user)
+			return nil, err
+		}
+
+		if err := global.GVA_DB.Preload("Authorities").Preload("Authority").First(&user, user.ID).Error; err != nil {
 			return nil, err
 		}
 
 		return &user, nil
 	}
 
-	if !global.GVA_CONFIG.OIDC.AutoCreateUser {
-		return nil, fmt.Errorf("user not found and auto-create is disabled")
-	}
-
-	// 创建新用户 - Clinx优先使用username字段
-	user := system.SysUser{
-		Username:  userInfo.Username,
-		NickName:  userInfo.Name,
-		HeaderImg: userInfo.Picture,
-		Enable:    1,
-	}
-
-	if user.Username == "" {
-		user.Username = userInfo.PreferredUsername
-	}
-	if user.Username == "" {
-		user.Username = userInfo.Sub
-	}
-	if user.NickName == "" {
-		user.NickName = userInfo.Nickname
-	}
-
-	// 设置默认密码（随机）
-	user.Password = uuid.New().String()[:16]
-
-	// 创建用户
-	if err := global.GVA_DB.Create(&user).Error; err != nil {
+	user := system.SysUser{GVA_MODEL: global.GVA_MODEL{ID: oidcUser.UserID}}
+	if err := global.GVA_DB.Preload("Authorities").Preload("Authority").First(&user).Error; err != nil {
 		return nil, err
 	}
 
-	// 创建OIDC用户关联
-	oidcUser = system.SysOidcUser{
-		Username: user.Username,
-		Email:    userInfo.Email,
-		Nickname: user.NickName,
-		Avatar:   userInfo.Picture,
-		Provider: provider,
-		Subject:  userInfo.Sub,
-		UserID:   user.ID,
-	}
+	oidcUser.Username = getUsername()
+	oidcUser.Email = userInfo.Email
+	oidcUser.Nickname = getNickname()
+	oidcUser.Avatar = userInfo.Picture
 
-	if err := global.GVA_DB.Create(&oidcUser).Error; err != nil {
-		// 回滚用户创建
-		global.GVA_DB.Delete(&user)
+	if err := global.GVA_DB.Save(&oidcUser).Error; err != nil {
 		return nil, err
-	}
-
-	// 分配默认权限
-	if global.GVA_CONFIG.OIDC.DefaultAuthority > 0 {
-		var authority system.SysAuthority
-		if err := global.GVA_DB.First(&authority, global.GVA_CONFIG.OIDC.DefaultAuthority).Error; err == nil {
-			global.GVA_DB.Create(&system.SysUserAuthority{
-				SysUserId:               user.ID,
-				SysAuthorityAuthorityId: authority.AuthorityId,
-			})
-		}
 	}
 
 	return &user, nil
