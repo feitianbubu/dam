@@ -35,9 +35,10 @@ export function unlinkOidc(provider) {
 }
 
 // 获取OIDC登出URL
-export function getOidcLogoutURL() {
+export function getOidcLogoutURL(params) {
   return service({
     url: '/oidc/logout-url',
-    method: 'get'
+    method: 'get',
+    params
   })
 }

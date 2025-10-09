@@ -108,7 +108,7 @@ func (o *OidcApi) UnlinkOidc(c *gin.Context) {
 // @Summary  获取OIDC登出URL
 // @Produce   application/json
 // @Param    post_logout_redirect_uri  query      string  false  "登出后重定向URI"
-// @Success  200   {object}  response.Response{data=string,msg=string}  "返回OIDC登出URL"
+// @Success  200   {object}  response.Response{data=response.OidcLogoutResponse,msg=string}  "返回OIDC登出URL和状态"
 // @Router   /oidc/logout-url [get]
 func (o *OidcApi) GetOidcLogoutURL(c *gin.Context) {
 	postLogoutRedirectURI := c.Query("post_logout_redirect_uri")

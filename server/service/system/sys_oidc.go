@@ -505,15 +505,21 @@ func (o *OidcService) GetOidcUsers(userID uint) ([]system.SysOidcUser, error) {
 }
 
 // GetLogoutURL 获取OIDC登出URL
-func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (string, error) {
+func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (*systemRes.OidcLogoutResponse, error) {
 	if !global.GVA_CONFIG.OIDC.Enabled {
-		return "", nil
+		return &systemRes.OidcLogoutResponse{
+			Enabled:   false,
+			LogoutURL: "",
+		}, nil
 	}
 
 	provider := global.GVA_CONFIG.OIDC.Provider
 	config := o.getOidcConfig(provider)
 	if config == nil || config.EndSessionURL == "" {
-		return "", nil // 没有配置登出端点，返回空字符串
+		return &systemRes.OidcLogoutResponse{
+			Enabled:   false,
+			LogoutURL: "",
+		}, nil // 没有配置登出端点，返回未启用
 	}
 
 	// 构建登出URL
@@ -524,7 +530,7 @@ func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (string, error)
 
 	logoutURL, err := url.Parse(config.EndSessionURL)
 	if err != nil {
-		return "", fmt.Errorf("invalid end session URL: %v", err)
+		return nil, fmt.Errorf("invalid end session URL: %v", err)
 	}
 
 	if params.Encode() != "" {
@@ -535,7 +541,10 @@ func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (string, error)
 		}
 	}
 
-	return logoutURL.String(), nil
+	return &systemRes.OidcLogoutResponse{
+		Enabled:   true,
+		LogoutURL: logoutURL.String(),
+	}, nil
 }
 
 // testOIDCConnection 测试OIDC服务提供方连接

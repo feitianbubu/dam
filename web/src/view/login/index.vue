@@ -195,8 +195,8 @@
 
         ElMessage.success('登录成功')
 
-        // 强制替换URL，移除hash中的login部分
-        window.location.hash = ''
+        const cleanUrl = window.location.origin + window.location.pathname + '#/'
+        window.history.replaceState({}, document.title, cleanUrl)
 
         // 检查是否有重定向地址
         if (router.currentRoute.value.query.redirect) {

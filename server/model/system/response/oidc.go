@@ -24,3 +24,9 @@ type OidcUserResponse struct {
 	system.SysOidcUser
 	Avatar string `json:"avatar"`
 }
+
+// OidcLogoutResponse OIDC登出响应
+type OidcLogoutResponse struct {
+	Enabled  bool   `json:"enabled"`  // 是否启用OIDC登出
+	LogoutURL string `json:"logoutUrl"` // 登出URL
+}
