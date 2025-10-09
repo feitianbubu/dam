@@ -149,13 +149,13 @@ type OidcUserInfo struct {
 // GetAuthURL 获取授权URL
 func (o *OidcService) GetAuthURL(provider string) (*systemRes.OidcLoginResponse, error) {
 	if !global.GVA_CONFIG.OIDC.Enabled {
-		return nil, fmt.Errorf("OIDC is not enabled")
+		return nil, fmt.Errorf("OIDC功能未启用")
 	}
 
 	// 生成状态参数
 	state, err := o.generateState()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate state: %v", err)
+		return nil, fmt.Errorf("生成状态参数失败: %v", err)
 	}
 
 	// 存储状态（10分钟过期）
@@ -163,18 +163,25 @@ func (o *OidcService) GetAuthURL(provider string) (*systemRes.OidcLoginResponse,
 	storage := o.GetStorage()
 	err = storage.Set(ctx, fmt.Sprintf("oidc_state:%s", state), provider, 10*time.Minute)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store state: %v", err)
+		return nil, fmt.Errorf("存储状态参数失败: %v", err)
 	}
 
 	config := o.getOidcConfig(provider)
 	if config == nil {
-		return nil, fmt.Errorf("unsupported provider: %s", provider)
+		return nil, fmt.Errorf("不支持的OIDC服务提供方: %s", provider)
+	}
+
+	// 如果有发现端点，先测试连接
+	if config.DiscoveryURL != "" {
+		if err := o.testOIDCConnection(config.DiscoveryURL); err != nil {
+			return nil, fmt.Errorf("OIDC服务提供方连接失败: %v，请检查服务是否正常运行", err)
+		}
 	}
 
 	// 构建授权URL
 	authURL, err := o.buildAuthURL(config, state)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build auth URL: %v", err)
+		return nil, fmt.Errorf("构建授权URL失败: %v", err)
 	}
 
 	return &systemRes.OidcLoginResponse{
@@ -263,20 +270,22 @@ func (o *OidcService) getOidcConfig(provider string) *OidcConfig {
 
 // fetchDiscoveryConfig 获取OIDC发现配置
 func (o *OidcService) fetchDiscoveryConfig(discoveryURL string) (*OidcDiscoveryResponse, error) {
-	resp, err := http.Get(discoveryURL)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Get(discoveryURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("无法获取OIDC发现配置: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("discovery request failed: %s", string(body))
+		return nil, fmt.Errorf("OIDC服务提供方返回错误状态码 %d: %s", resp.StatusCode, string(body))
 	}
 
 	var discoveryResp OidcDiscoveryResponse
 	if err := json.NewDecoder(resp.Body).Decode(&discoveryResp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析OIDC发现配置失败: %v", err)
 	}
 
 	return &discoveryResp, nil
@@ -526,4 +535,21 @@ func (o *OidcService) GetLogoutURL(postLogoutRedirectURI string) (string, error)
 	}
 
 	return logoutURL.String(), nil
+}
+
+// testOIDCConnection 测试OIDC服务提供方连接
+func (o *OidcService) testOIDCConnection(discoveryURL string) error {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(discoveryURL)
+	if err != nil {
+		return fmt.Errorf("无法连接到OIDC服务提供方: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("OIDC服务提供方返回错误状态码: %d", resp.StatusCode)
+	}
+
+	return nil
 }

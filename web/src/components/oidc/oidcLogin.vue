@@ -45,7 +45,25 @@ const handleOidcLogin = async (provider) => {
     }
   } catch (error) {
     loading.value = ''
-    ElMessage.error('获取授权链接失败: ' + (error.message || '未知错误'))
+
+    // 获取错误信息
+    let errorMessage = '获取授权链接失败'
+    if (error.response && error.response.data && error.response.data.msg) {
+      errorMessage = error.response.data.msg
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+
+    // 根据错误类型给出更友好的提示
+    if (errorMessage.includes('连接失败') || errorMessage.includes('无法连接')) {
+      ElMessage.error('OIDC服务提供方连接失败，请检查服务是否正常运行或联系管理员')
+    } else if (errorMessage.includes('未启用')) {
+      ElMessage.error('OIDC功能未启用，请联系管理员')
+    } else if (errorMessage.includes('不支持')) {
+      ElMessage.error('不支持的OIDC服务提供方，请联系管理员')
+    } else {
+      ElMessage.error('登录失败: ' + errorMessage)
+    }
   }
 }
 </script>
