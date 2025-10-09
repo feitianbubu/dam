@@ -7,13 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // GetOidcAuthURL
 // @Tags     Oidc
 // @Summary  获取OIDC授权URL
 // @Produce   application/json
 // @Param    data  body      systemReq.OidcLoginRequest                                     true  "provider"
-// @Success  200   {object}  response.Response{data=systemRes.OidcLoginResponse,msg=string}  "返回授权URL和状态"
+// @Success  200   {object}  response.Response{data=response.OidcLoginResponse,msg=string}  "返回授权URL和状态"
 // @Router   /oidc/auth [post]
 func (o *OidcApi) GetOidcAuthURL(c *gin.Context) {
 	var req systemReq.OidcLoginRequest
@@ -36,7 +35,7 @@ func (o *OidcApi) GetOidcAuthURL(c *gin.Context) {
 // @Summary  OIDC回调处理
 // @Produce   application/json
 // @Param    data  body      systemReq.OidcCallbackRequest                              true  "code, state"
-// @Success  200   {object}  response.Response{data=systemRes.LoginResponse,msg=string}  "返回用户信息和token"
+// @Success  200   {object}  response.Response{data=response.LoginResponse,msg=string}  "返回用户信息和token"
 // @Router   /oidc/callback [post]
 func (o *OidcApi) OidcCallback(c *gin.Context) {
 	var req systemReq.OidcCallbackRequest

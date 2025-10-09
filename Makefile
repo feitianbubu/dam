@@ -79,7 +79,7 @@ doc:
 swag:
 	$(eval SWAG := build/dist/swag)
 	@if ! command -v swag > /dev/null 2>&1; then echo "Installing swag..." && go install github.com/swaggo/swag/cmd/swag@latest; fi
-	@cd server && swag init -t Dam -o ../${SWAG} --ot=json
+	@cd server && swag init -t Dam,Oidc -o ../${SWAG} --ot=json
 	@sed 's/{{\.Version}}/$(VERSION)/g' ${SWAG}/swagger.json > ${SWAG}/swagger.json.tmp \
 	 && mv ${SWAG}/swagger.json.tmp ${SWAG}/swagger.json
 	@if command -v swagger2openapi > /dev/null 2>&1; then \

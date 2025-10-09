@@ -443,7 +443,7 @@ func (b *BaseApi) SetSelfSetting(c *gin.Context) {
 }
 
 // GetUserInfo
-// @Tags      SysUser
+// @Tags      Dam
 // @Summary   获取用户信息
 // @Security  ApiKeyAuth
 // @accept    application/json
