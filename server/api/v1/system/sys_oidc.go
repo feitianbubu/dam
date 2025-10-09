@@ -50,13 +50,11 @@ func (o *OidcApi) OidcCallback(c *gin.Context) {
 		return
 	}
 
-	// 检查用户状态
 	if user.Enable != 1 {
 		response.FailWithMessage("用户被禁止登录", c)
 		return
 	}
 
-	// 签发JWT token
 	new(BaseApi).TokenNext(c, *user)
 }
 
@@ -109,17 +107,17 @@ func (o *OidcApi) UnlinkOidc(c *gin.Context) {
 // @Tags     Oidc
 // @Summary  获取OIDC登出URL
 // @Produce   application/json
-// @Success  200   {object}  response.Response{data=map[string]interface{},msg=string}  "返回登出URL"
+// @Param    post_logout_redirect_uri  query      string  false  "登出后重定向URI"
+// @Success  200   {object}  response.Response{data=string,msg=string}  "返回OIDC登出URL"
 // @Router   /oidc/logout-url [get]
 func (o *OidcApi) GetOidcLogoutURL(c *gin.Context) {
-	logoutURL, err := oidcService.GetLogoutURL("")
+	postLogoutRedirectURI := c.Query("post_logout_redirect_uri")
+
+	logoutURL, err := oidcService.GetLogoutURL(postLogoutRedirectURI)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
 
-	response.OkWithData(gin.H{
-		"logoutUrl": logoutURL,
-		"enabled":   logoutURL != "",
-	}, c)
+	response.OkWithData(logoutURL, c)
 }

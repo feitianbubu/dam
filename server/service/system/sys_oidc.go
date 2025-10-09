@@ -22,7 +22,6 @@ type OidcService struct{}
 
 var OidcServiceApp = new(OidcService)
 
-// StorageAdapter 存储适配器接口
 type StorageAdapter interface {
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Get(ctx context.Context, key string) (string, error)
@@ -33,7 +32,6 @@ type StorageAdapter interface {
 	TxPipeline() interface{}
 }
 
-// RedisStorageAdapter Redis存储适配器
 type RedisStorageAdapter struct{}
 
 func (r *RedisStorageAdapter) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
@@ -64,7 +62,6 @@ func (r *RedisStorageAdapter) TxPipeline() interface{} {
 	return global.GVA_REDIS.TxPipeline()
 }
 
-// MemoryStorageAdapter 内存存储适配器
 type MemoryStorageAdapter struct{}
 
 func (m *MemoryStorageAdapter) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
@@ -95,7 +92,6 @@ func (m *MemoryStorageAdapter) TxPipeline() interface{} {
 	return GetMemoryStore().TxPipeline()
 }
 
-// GetStorage 获取存储适配器
 func (o *OidcService) GetStorage() StorageAdapter {
 	if global.GVA_CONFIG.System.UseRedis && global.GVA_REDIS != nil {
 		return &RedisStorageAdapter{}

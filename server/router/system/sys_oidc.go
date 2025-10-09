@@ -11,10 +11,10 @@ func (s *OidcRouter) InitOidcRouter(Router *gin.RouterGroup) {
 	oidcRouter := Router.Group("oidc")
 	oidcRouterWithAuth := Router.Group("oidc").Use(middleware.JWTAuth())
 	{
-		oidcRouter.POST("auth", oidcApiInstance.GetOidcAuthURL)      // 获取授权URL
-		oidcRouter.POST("callback", oidcApiInstance.OidcCallback)    // OIDC回调
-		oidcRouter.GET("logout-url", oidcApiInstance.GetOidcLogoutURL) // 获取登出URL
-		oidcRouterWithAuth.GET("users", oidcApiInstance.GetOidcUsers) // 获取OIDC绑定
-		oidcRouterWithAuth.DELETE("unlink/:provider", oidcApiInstance.UnlinkOidc) // 解绑OIDC
+		oidcRouter.POST("auth", oidcApiInstance.GetOidcAuthURL)
+		oidcRouter.POST("callback", oidcApiInstance.OidcCallback)
+		oidcRouterWithAuth.GET("users", oidcApiInstance.GetOidcUsers)
+		oidcRouterWithAuth.DELETE("unlink/:provider", oidcApiInstance.UnlinkOidc)
+		oidcRouter.GET("logout-url", oidcApiInstance.GetOidcLogoutURL)
 	}
 }
