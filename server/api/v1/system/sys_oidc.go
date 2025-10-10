@@ -59,7 +59,7 @@ func (o *OidcApi) OidcCallback(c *gin.Context) {
 }
 
 // GetOidcUsers
-// @Tags     Oidc
+// @Tags     !Oidc
 // @Summary  获取用户的OIDC绑定
 // @Produce   application/json
 // @Success  200   {object}  response.Response{data=[]system.SysOidcUser,msg=string}  "返回OIDC绑定列表"
@@ -78,7 +78,7 @@ func (o *OidcApi) GetOidcUsers(c *gin.Context) {
 }
 
 // UnlinkOidc
-// @Tags     Oidc
+// @Tags     !Oidc
 // @Summary  解绑OIDC
 // @Produce   application/json
 // @Param    provider  path      string  true  "provider"
