@@ -59,8 +59,8 @@ func (o *OidcApi) OidcCallback(c *gin.Context) {
 }
 
 // GetOidcUsers
-// @Tags     !Oidc
-// @Summary  获取用户的OIDC绑定
+// @Tags     Oidc
+// @Summary  获取用户OIDC信息
 // @Produce   application/json
 // @Success  200   {object}  response.Response{data=[]system.SysOidcUser,msg=string}  "返回OIDC绑定列表"
 // @Router   /oidc/users [get]

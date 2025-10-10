@@ -500,7 +500,7 @@ func (o *OidcService) UnlinkOidc(userID uint, provider string) error {
 // GetOidcUsers 获取用户的OIDC绑定
 func (o *OidcService) GetOidcUsers(userID uint) ([]system.SysOidcUser, error) {
 	var oidcUsers []system.SysOidcUser
-	err := global.GVA_DB.Where("user_id = ?", userID).Find(&oidcUsers).Error
+	err := global.GVA_DB.Preload("SysUser").Where("user_id = ?", userID).Find(&oidcUsers).Error
 	return oidcUsers, err
 }
 
