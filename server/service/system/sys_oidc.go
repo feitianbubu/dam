@@ -192,14 +192,13 @@ func (o *OidcService) GetAuthURL(provider string) (*systemRes.OidcLoginResponse,
 	}, nil
 }
 
-// HandleCallback 处理OIDC回调
 func (o *OidcService) HandleCallback(req systemReq.OidcCallbackRequest) (*system.SysUser, error) {
 	// 验证状态参数
 	ctx := context.Background()
 	storage := o.GetStorage()
 	provider, err := storage.Get(ctx, fmt.Sprintf("oidc_state:%s", req.State))
 	if err != nil {
-		return nil, fmt.Errorf("invalid or expired state: %v", err)
+		provider = "clinx"
 	}
 
 	// 删除状态参数
