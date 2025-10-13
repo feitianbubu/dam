@@ -20,9 +20,20 @@ import (
 // @Tag.Name        SysUser
 // @Tag.Description 用户
 
-// @title                       Gin-Vue-Admin Swagger API接口文档
-// @version                     v2.8.8
-// @description                 使用gin+vue进行极速开发的全栈开发基础平台
+// @title        云一Dam API接口文档
+// @version      {{.Version}}
+// @description  ###云一AI图像视频数据管理系统DAM
+// @description
+// @description  **调用流程:**
+// @description  1. 获取token
+// @description  2. 在请求头携带x-token
+// @description  3. 调用业务接口
+// @description
+// @description  **获取token方式(三选一):**
+// @description  1. 账号密码登录获取(简单联调使用)
+// @description  2. 通过Oidc标准登录获取(推荐) → 调用`获取Oidc授权URL`Api → 跳转到授权URL登录 → 登录成功后获取授权码code → 通过code调用`Oidc回调处理`Api获取token
+// @description  3. 通过Clinx登录(接过Clinx) → 获取Clinx访问令牌access_token → 通过access_token调用`Oidc回调处理`Api获取token
+// @description
 // @securityDefinitions.apikey  ApiKeyAuth
 // @in                          header
 // @name                        x-token
