@@ -34,6 +34,10 @@ import (
 // @description  2. 通过Oidc标准登录获取(推荐) → 调用`获取Oidc授权URL`Api → 跳转到授权URL登录 → 登录成功后获取授权码code → 通过code调用`Oidc回调处理`Api获取token
 // @description  3. 通过Clinx登录(接过Clinx) → 获取Clinx访问令牌access_token → 通过access_token调用`Oidc回调处理`Api获取token
 // @description
+// @tag.name Dam
+// @tag.description 云一Dam管理
+// @tag.name File
+// @tag.description 文件管理
 // @securityDefinitions.apikey  ApiKeyAuth
 // @in                          header
 // @name                        x-token
