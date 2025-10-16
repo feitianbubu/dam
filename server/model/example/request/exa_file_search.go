@@ -17,7 +17,9 @@ type VectorSearchParams struct {
 
 // ExaFileSearchRequest 文件搜索请求，支持传统搜索和向量搜索
 type ExaFileSearchRequest struct {
-	ClassId int `json:"classId" form:"classId" swaggerignore:"true"` // 分类ID
+	ClassId  int      `json:"classId" form:"classId"`                    // 分类ID
+	Tags     []string `json:"tags" form:"tags"`                          // 标签过滤，支持多个标签
+	Username string   `json:"username" form:"username"`                  // 用户名过滤
 	VectorSearchParams
 	request.PageInfo
 }
@@ -25,6 +27,11 @@ type ExaFileSearchRequest struct {
 // IsVectorSearch 判断是否为向量搜索
 func (r *ExaFileSearchRequest) IsVectorSearch() bool {
 	return len(r.Prompt) > 0
+}
+
+// HasBizMetadataFilters 判断是否有业务元数据过滤条件
+func (r *ExaFileSearchRequest) HasBizMetadataFilters() bool {
+	return len(r.Tags) > 0 || r.Username != ""
 }
 
 // GetSearchDefaults 获取搜索默认值

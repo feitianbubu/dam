@@ -3,13 +3,14 @@ package example
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example/request"
 	exampleRes "github.com/flipped-aurora/gin-vue-admin/server/model/example/response"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -23,6 +24,10 @@ type FileUploadAndDownloadApi struct{}
 // @accept    multipart/form-data
 // @Produce   application/json
 // @Param     file  formData  file                                                           true  "上传文件示例"
+// @Param     classId  formData  int                                                            false  "分类ID，默认为1"
+// @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
+// @Param     username  formData  string                                                       false  "用户名，留空则使用当前登录用户名"
+// @Param     remarks  formData  string                                                       false  "备注信息"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
 func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
@@ -38,13 +43,55 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		response.FailWithMessage("接收文件失败", c)
 		return
 	}
-	file, err = fileUploadAndDownloadService.UploadFile(header, noSave, classId) // 文件上传后拿到文件路径
+
+	// 获取当前用户信息
+	userID := utils.GetUserID(c)
+	userName := utils.GetUserName(c)
+
+	// 解析业务元数据参数，优先使用表单提供的username，否则使用当前用户
+	usernameValue := c.PostForm("username")
+	if usernameValue == "" {
+		// 如果表单中没有提供username，使用当前用户名
+		usernameValue = userName
+	}
+
+	bizMetadata := example.BizMetadata{
+		Tags:     parseTagsFromForm(c.PostForm("tags")),
+		Username: usernameValue,
+		Remarks:  c.PostForm("remarks"),
+	}
+
+	// 记录上传用户信息
+	global.GVA_LOG.Info("文件上传用户信息",
+		zap.Uint("userID", userID),
+		zap.String("userName", userName),
+		zap.String("fileUsername", usernameValue))
+
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, &bizMetadata) // 文件上传后拿到文件路径
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
 		return
 	}
 	response.OkWithDetailed(exampleRes.ExaFileResponse{File: file}, "上传成功", c)
+}
+
+// parseTagsFromForm 解析表单中的tags字符串为标签数组
+func parseTagsFromForm(tagsStr string) []string {
+	if tagsStr == "" {
+		return []string{}
+	}
+
+	tags := strings.Split(tagsStr, ",")
+	var parsedTags []string
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			parsedTags = append(parsedTags, tag)
+		}
+	}
+
+	return parsedTags
 }
 
 // EditFileName 编辑文件名或者备注
@@ -117,7 +164,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
-// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 可选的向量搜索参数"
+// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 标签过滤, 用户名过滤, 可选的向量搜索参数"
 // @Success   200   {object}  response.Response{data=response.PageResult,msg=string}  "分页文件列表,返回包括列表,总数,页码,每页数量"
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
@@ -134,44 +181,74 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		searchInfo.PageSize = 10
 	}
 
-	// 如果有向量搜索参数，使用新的搜索方法
+	// 执行搜索（支持向量搜索和传统搜索）
+	var vectorDocumentIDs []string
+	var vectorScores map[uint]float64
+	var searchType string
+
+	// 如果有向量搜索参数，先执行向量搜索获取文档ID
 	if searchInfo.IsVectorSearch() {
-		list, total, err := fileUploadAndDownloadService.GetFileRecordInfoListWithSearch(searchInfo)
+		searchType = "向量搜索"
+
+		// 执行向量搜索，获取匹配的文档ID和分数
+		vectorResult, err := fileUploadAndDownloadService.SearchVectorDocuments(
+			searchInfo.Prompt,
+			searchInfo.KnowledgeIDs,
+			searchInfo.TopK,
+			searchInfo.MinScore,
+			searchInfo.SearchType,
+		)
 		if err != nil {
 			global.GVA_LOG.Error("向量搜索失败!", zap.Error(err))
 			response.FailWithMessage("向量搜索失败: "+err.Error(), c)
 			return
 		}
-		response.OkWithDetailed(response.PageResult{
-			List:     list,
-			Total:    total,
-			Page:     searchInfo.Page,
-			PageSize: searchInfo.PageSize,
-		}, "向量搜索成功", c)
+
+		if len(vectorResult.DocumentIDs) == 0 {
+			// 没有匹配的文档，返回空结果
+			global.GVA_LOG.Info("向量搜索无匹配结果", zap.String("prompt", searchInfo.Prompt))
+			response.OkWithDetailed(response.PageResult{
+				List:     []example.ExaFileUploadAndDownload{},
+				Total:    0,
+				Page:     searchInfo.Page,
+				PageSize: searchInfo.PageSize,
+			}, "向量搜索完成，无匹配结果", c)
+			return
+		}
+
+		// 保存向量搜索结果
+		vectorDocumentIDs = vectorResult.DocumentIDs
+		vectorScores = vectorResult.Scores
+
+		global.GVA_LOG.Info("向量搜索完成",
+			zap.String("prompt", searchInfo.Prompt),
+			zap.Int("matchedDocuments", len(vectorDocumentIDs)))
+	} else {
+		searchType = "传统搜索"
+	}
+
+	// 使用统一的搜索方法执行文件搜索
+	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoListWithVectorFilter(searchInfo, vectorDocumentIDs)
+	if err != nil {
+		global.GVA_LOG.Error("文件搜索失败!", zap.Error(err))
+		response.FailWithMessage("文件搜索失败: "+err.Error(), c)
 		return
 	}
 
-	// 否则使用传统搜索方法（向后兼容）
-	pageInfo := request.ExaAttachmentCategorySearch{
-		ClassId: searchInfo.ClassId,
-		PageInfo: commonRequest.PageInfo{
-			Page:     searchInfo.Page,
-			PageSize: searchInfo.PageSize,
-			Keyword:  searchInfo.Keyword,
-		},
+	// 如果是向量搜索，应用分数并排序
+	if searchInfo.IsVectorSearch() {
+		list = fileUploadAndDownloadService.ApplyVectorScoresToResults(list, vectorScores)
+		global.GVA_LOG.Info("文件搜索完成",
+			zap.String("searchType", searchType),
+			zap.Int("resultCount", len(list)))
 	}
-	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoList(pageInfo)
-	if err != nil {
-		global.GVA_LOG.Error("获取失败!", zap.Error(err))
-		response.FailWithMessage("获取失败", c)
-		return
-	}
+
 	response.OkWithDetailed(response.PageResult{
 		List:     list,
 		Total:    total,
-		Page:     pageInfo.Page,
-		PageSize: pageInfo.PageSize,
-	}, "获取成功", c)
+		Page:     searchInfo.Page,
+		PageSize: searchInfo.PageSize,
+	}, searchType+"成功", c)
 }
 
 // ImportURL

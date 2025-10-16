@@ -8,14 +8,17 @@ import (
 
 type ExaFileUploadAndDownload struct {
 	global.GVA_MODEL
-	Name    string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                               // 文件名
-	ClassId int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
-	Url     string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                // 文件地址
-	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                        // 文件类型
-	Key     string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
+	Name     string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                // 文件名
+	ClassId  int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
+	Url      string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
+	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
+	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
 
 	// 文件元数据 - 只存储纯文件理解结果
 	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据"`
+
+	// 业务元数据 - 存储业务相关的自定义信息
+	BizMetadata BizMetadata `json:"bizMetadata" form:"bizMetadata" gorm:"serializer:json;type:json;column:biz_metadata;comment:业务元数据"`
 
 	// 处理状态相关字段 - 独立管理
 	ProcessStatus     string     `json:"processStatus" gorm:"column:process_status;default:pending;comment:处理状态:pending,processing,completed,failed"`
@@ -52,6 +55,21 @@ type FileMetadata struct {
 type ImageDimensions struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
+}
+
+// BizMetadata 存储业务相关的自定义信息
+type BizMetadata struct {
+	// 自定义标签 - 用户或业务系统定义的标签
+	Tags []string `json:"tags" form:"tags"`
+
+	// 用户名 - 文件上传者或指定的用户名
+	Username string `json:"username" form:"username"`
+
+	// 备注信息 - 业务相关的补充说明
+	Remarks string `json:"remarks" form:"remarks"`
+
+	// 扩展字段 - 其他业务相关的自定义字段
+	ExtraFields map[string]interface{} `json:"extraFields" form:"extraFields"`
 }
 
 // 处理状态常量

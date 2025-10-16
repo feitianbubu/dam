@@ -161,6 +161,11 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //@return: file model.ExaFileUploadAndDownload, err error
 
 func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
+	return e.UploadFileWithMetadata(header, noSave, classId, nil)
+}
+
+// UploadFileWithMetadata 上传文件并支持业务元数据
+func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, bizMetadata *example.BizMetadata) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
 		var existingFile example.ExaFileUploadAndDownload
@@ -188,6 +193,11 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 		FileType:      s[len(s)-1],
 		Key:           key,
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
+	}
+
+	// 如果提供了业务元数据，则设置
+	if bizMetadata != nil {
+		f.BizMetadata = *bizMetadata
 	}
 	if noSave == "0" {
 		err = e.Upload(&f)
@@ -336,15 +346,47 @@ func (e *FileUploadAndDownloadService) searchDocumentIDsWithScores(prompt string
 	return result, nil
 }
 
-func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
-	// 设置搜索默认值
-	info.GetSearchDefaults()
-
-	// 验证请求参数
-	if err = info.Validate(); err != nil {
-		return
+// SearchVectorDocuments 执行向量搜索，返回匹配的文档ID和分数
+func (e *FileUploadAndDownloadService) SearchVectorDocuments(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) (*searchResult, error) {
+	// 设置默认值
+	if topK <= 0 {
+		topK = 30
+	}
+	if minScore < 0 {
+		minScore = 0.0
+	}
+	if searchType < 0 || searchType > 2 {
+		searchType = 2 // 默认混合检索
+	}
+	// 如果KnowledgeIDs为空，使用默认配置
+	if len(knowledgeIDs) == 0 {
+		knowledgeIDs = e.getDefaultKnowledgeIDs()
 	}
 
+	return e.searchDocumentIDsWithScores(prompt, knowledgeIDs, topK, minScore, searchType)
+}
+
+// getDefaultKnowledgeIDs 获取默认的知识库ID列表
+func (e *FileUploadAndDownloadService) getDefaultKnowledgeIDs() []string {
+	var categories []example.ExaAttachmentCategory
+	if err := global.GVA_DB.Where("knowledge_id != ?", "").Find(&categories).Error; err == nil {
+		knowledgeIDs := make([]string, 0, len(categories))
+		for _, category := range categories {
+			if category.KnowledgeID != "" {
+				knowledgeIDs = append(knowledgeIDs, category.KnowledgeID)
+			}
+		}
+		return knowledgeIDs
+	}
+	return []string{}
+}
+
+func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
+	return e.GetFileRecordInfoListWithVectorFilter(info, nil)
+}
+
+// GetFileRecordInfoListWithVectorFilter 执行文件搜索，支持向量文档ID过滤
+func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(info request.ExaFileSearchRequest, vectorDocumentIDs []string) (list []example.ExaFileUploadAndDownload, total int64, err error) {
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
@@ -357,35 +399,12 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 		db = db.Where("class_id = ?", info.ClassId)
 	}
 
-	var scores map[uint]float64
-	// 向量搜索过滤
-	if info.IsVectorSearch() {
-		searchResult, err := e.searchDocumentIDsWithScores(
-			info.Prompt,
-			info.KnowledgeIDs,
-			info.TopK,
-			info.MinScore,
-			info.SearchType,
-		)
-		if err != nil {
-			// 向量搜索失败时记录错误但不中断流程，降级为普通搜索
-			global.GVA_LOG.Warn("向量搜索失败，降级为普通搜索",
-				zap.Error(err),
-				zap.String("prompt", info.Prompt))
-		} else if len(searchResult.DocumentIDs) == 0 {
-			// 没有匹配的文档，返回空结果
-			global.GVA_LOG.Info("向量搜索无匹配结果", zap.String("prompt", info.Prompt))
-			return []example.ExaFileUploadAndDownload{}, 0, nil
-		} else {
-			// 添加向量搜索过滤条件
-			db = db.Where("vectorization_document_id IN ?", searchResult.DocumentIDs)
-			global.GVA_LOG.Info("应用向量搜索过滤",
-				zap.String("prompt", info.Prompt),
-				zap.Int("documentCount", len(searchResult.DocumentIDs)))
+	// 业务元数据过滤条件
+	e.applyBizMetadataFilters(db, info)
 
-			// 保存分数信息
-			scores = searchResult.Scores
-		}
+	// 向量文档ID过滤（如果提供）
+	if len(vectorDocumentIDs) > 0 {
+		db = db.Where("vectorization_document_id IN ?", vectorDocumentIDs)
 	}
 
 	// 执行查询
@@ -395,19 +414,41 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info requ
 	}
 	err = db.Limit(limit).Offset(offset).Order("id desc").Find(&list).Error
 
-	// 为查询结果填充分数信息
-	if scores != nil {
-		for i := range list {
-			if score, exists := scores[list[i].ID]; exists {
-				list[i].Score = score
-			}
-		}
+	return list, total, err
+}
 
-		// 按分数倒序排序
-		sort.Slice(list, func(i, j int) bool {
-			return list[i].Score > list[j].Score
-		})
+// ApplyVectorScoresToResults 将向量搜索分数应用到搜索结果中
+func (e *FileUploadAndDownloadService) ApplyVectorScoresToResults(list []example.ExaFileUploadAndDownload, scores map[uint]float64) []example.ExaFileUploadAndDownload {
+	if scores == nil {
+		return list
 	}
 
-	return list, total, err
+	// 为查询结果填充分数信息
+	for i := range list {
+		if score, exists := scores[list[i].ID]; exists {
+			list[i].Score = score
+		}
+	}
+
+	// 按分数倒序排序
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Score > list[j].Score
+	})
+
+	return list
+}
+
+// applyBizMetadataFilters 应用业务元数据过滤条件
+func (e *FileUploadAndDownloadService) applyBizMetadataFilters(db *gorm.DB, info request.ExaFileSearchRequest) {
+	// 标签过滤 - 支持多个标签，要求文件包含所有指定标签
+	if len(info.Tags) > 0 {
+		for _, tag := range info.Tags {
+			db = db.Where("JSON_CONTAINS(biz_metadata->'$.tags', JSON_QUOTE(?))", tag)
+		}
+	}
+
+	// 用户名过滤
+	if info.Username != "" {
+		db = db.Where("JSON_EXTRACT(biz_metadata, '$.username') = ?", info.Username)
+	}
 }
