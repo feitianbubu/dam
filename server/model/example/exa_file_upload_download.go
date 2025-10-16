@@ -8,10 +8,10 @@ import (
 
 type ExaFileUploadAndDownload struct {
 	global.GVA_MODEL
-	Name    string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                // 文件名
+	Name    string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                               // 文件名
 	ClassId int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
-	Url     string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
-	Tag     string `json:"tag" form:"tag" gorm:"column:tag;comment:文件标签"`                                  // 文件标签
+	Url     string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                // 文件地址
+	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                        // 文件类型
 	Key     string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
 
 	// 文件元数据 - 只存储纯文件理解结果
@@ -27,7 +27,7 @@ type ExaFileUploadAndDownload struct {
 	VectorizationDocumentID string `json:"vectorizationDocumentId" gorm:"column:vectorization_document_id;comment:向量化服务文档ID"`
 	VectorizationStatus     string `json:"vectorizationStatus" gorm:"column:vectorization_status;default:pending;comment:向量化处理状态"`
 	VectorizationProvider   string `json:"vectorizationProvider" gorm:"column:vectorization_provider;comment:向量化服务提供商"`
-	VectorizationError      string `json:"vectorizationError" gorm:"column:vectorization_error;comment:向量化处理错误信息"`
+	VectorizationError      string `json:"vectorizationError" gorm:"type:varchar(1000);column:vectorization_error;comment:向量化处理错误信息"`
 	VectorizationRetryCount int    `json:"vectorizationRetryCount" gorm:"column:vectorization_retry_count;default:0;comment:向量化重试次数"`
 
 	// 临时字段：向量搜索相似度分数（只在搜索时返回）

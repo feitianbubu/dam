@@ -381,7 +381,7 @@
               name: name,
               url: url,
               classId: search.value.classId,
-              tag: url.substring(url.lastIndexOf('.') + 1),
+              fileType: url.substring(url.lastIndexOf('.') + 1),
               key: CreateUUID()
             })
           }

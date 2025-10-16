@@ -185,7 +185,7 @@ func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, 
 		Url:           filePath,
 		Name:          header.Filename,
 		ClassId:       classId,
-		Tag:           s[len(s)-1],
+		FileType:      s[len(s)-1],
 		Key:           key,
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
 	}

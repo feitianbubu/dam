@@ -60,7 +60,7 @@ func (p *FileProcessorImpl) processFileAsync(fileID uint) error {
 	}
 
 	// 调用多模态API分析文件
-	metadata, err := p.understandingService.AnalyzeFile(file.Url, file.Tag)
+	metadata, err := p.understandingService.AnalyzeFile(file.Url, file.FileType)
 	if err != nil {
 		// 处理失败，更新状态
 		errMsg := err.Error()
