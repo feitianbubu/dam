@@ -67,7 +67,6 @@ func NewFileUploadAndDownloadService() *FileUploadAndDownloadService {
 	}
 }
 
-// bizMetadataToMinioMetadata 将业务元数据转换为MinIO元数据格式
 func (e *FileUploadAndDownloadService) bizMetadataToMinioMetadata(bizMetadata *example.BizMetadata) map[string]string {
 	if bizMetadata == nil {
 		return nil
@@ -75,18 +74,15 @@ func (e *FileUploadAndDownloadService) bizMetadataToMinioMetadata(bizMetadata *e
 
 	metadata := make(map[string]string)
 
-	// 处理标签数组 - 转换为JSON字符串
+	// 处理标签数组 - 转换为JSON字符串（包含中文标签）
 	if len(bizMetadata.Tags) > 0 {
 		tagsJSON, err := json.Marshal(bizMetadata.Tags)
 		if err == nil {
 			metadata["tags"] = string(tagsJSON)
+			global.GVA_LOG.Debug("将标签存储在MinIO元数据中",
+				zap.Strings("标签", bizMetadata.Tags),
+				zap.String("JSON", string(tagsJSON)))
 		}
-	}
-
-	// 将整个BizMetadata结构体序列化为JSON，方便后续检索
-	fullMetadataJSON, err := json.Marshal(bizMetadata)
-	if err == nil {
-		metadata["biz_metadata"] = string(fullMetadataJSON)
 	}
 
 	return metadata
@@ -95,28 +91,13 @@ func (e *FileUploadAndDownloadService) bizMetadataToMinioMetadata(bizMetadata *e
 func (e *FileUploadAndDownloadService) fileToMinioTags(userID uint, userName string, bizMetadata *example.BizMetadata) map[string]string {
 	tags := make(map[string]string)
 
-	maxBusinessTags := 8
+	// MinIO标签只存储用户ID和用户名，自定义标签存储在元数据中
 	if userID > 0 {
 		tags["user-id"] = fmt.Sprintf("%d", userID)
-		maxBusinessTags-- // user-id占用一个标签位
 	}
 
 	if userName != "" {
 		tags["username"] = userName
-		maxBusinessTags-- // username占用一个标签位
-	}
-
-	if bizMetadata != nil && len(bizMetadata.Tags) > 0 {
-		for i, tag := range bizMetadata.Tags {
-			if i >= maxBusinessTags {
-				global.GVA_LOG.Warn("MinIO标签数量超限，部分标签未设置",
-					zap.Int("maxTags", maxBusinessTags),
-					zap.Int("totalTags", len(bizMetadata.Tags)))
-				break
-			}
-			// 使用tag-0, tag-1, tag-2等作为标签键
-			tags[fmt.Sprintf("tag-%d", i)] = tag
-		}
 	}
 
 	return tags
@@ -238,14 +219,12 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 
 	oss := upload.NewOss()
 
-	// 转换业务元数据为MinIO元数据和标签
 	minioMetadata := e.bizMetadataToMinioMetadata(bizMetadata)
 	minioTags := e.fileToMinioTags(userID, userName, bizMetadata)
 
 	var filePath, key string
 	var uploadErr error
 
-	// 检查是否为MinIO客户端，支持标签和元数据
 	if minioClient, ok := oss.(*upload.Minio); ok && (minioMetadata != nil || minioTags != nil) {
 		filePath, key, uploadErr = minioClient.UploadFileWithMetadataAndTags(header, minioMetadata, minioTags)
 		global.GVA_LOG.Info("使用MinIO混合方案上传（元数据+标签）",

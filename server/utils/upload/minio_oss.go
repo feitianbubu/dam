@@ -59,12 +59,10 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 	return m.UploadFileWithMetadata(file, nil)
 }
 
-// UploadFileWithMetadata 上传文件并支持自定义元数据
 func (m *Minio) UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (filePathres, key string, uploadErr error) {
 	return m.UploadFileWithMetadataAndTags(file, metadata, nil)
 }
 
-// UploadFileWithMetadataAndTags 上传文件并支持自定义元数据和标签
 func (m *Minio) UploadFileWithMetadataAndTags(file *multipart.FileHeader, metadata map[string]string, tags map[string]string) (filePathres, key string, uploadErr error) {
 	f, openError := file.Open()
 	// mutipart.File to os.File
