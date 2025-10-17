@@ -222,11 +222,11 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //@return: file model.ExaFileUploadAndDownload, err error
 
 func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
-	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil)
+	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil, false)
 }
 
 // UploadFileWithMetadata 上传文件并支持业务元数据
-func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata) (file example.ExaFileUploadAndDownload, err error) {
+func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, waitForMetadata bool) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
 		var existingFile example.ExaFileUploadAndDownload
@@ -303,7 +303,20 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 		fileID := f.ID
 		global.GVA_LOG.Info("文件上传成功，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
 
-		e.ProcessFileWithRetry(fileID, 3, "自动文件处理")
+		if waitForMetadata {
+			// 同步等待处理完成
+			global.GVA_LOG.Info("同步等待文件处理完成", zap.Uint64("fileID", uint64(fileID)))
+			e.ProcessFileWithRetry(fileID, 3, "同步文件处理")
+
+			// 重新查询文件获取完整数据（包含metadata）
+			f, err = e.FindFile(fileID)
+			if err != nil {
+				global.GVA_LOG.Error("重新查询文件失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
+			}
+		} else {
+			// 异步处理
+			go e.ProcessFileWithRetry(fileID, 3, "异步文件处理")
+		}
 
 		return f, nil
 	}

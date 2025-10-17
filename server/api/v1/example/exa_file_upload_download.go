@@ -26,7 +26,7 @@ type FileUploadAndDownloadApi struct{}
 // @Param     file  formData  file                                                           true  "上传文件示例"
 // @Param     classId  formData  int                                                            false  "分类ID，默认为1"
 // @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
-// @Param     remarks  formData  string                                                       false  "备注信息"
+// @Param     waitForMetadata  formData  bool                                                   false  "是否等待metadata处理完成再返回，默认false（异步处理）"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
 func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
@@ -53,19 +53,32 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		Remarks: c.PostForm("remarks"),
 	}
 
+	// 获取是否等待metadata参数
+	waitForMetadata := c.DefaultPostForm("waitForMetadata", "false") == "true"
+
 	// 记录上传用户信息
 	global.GVA_LOG.Info("文件上传用户信息",
 		zap.Uint("userID", userID),
-		zap.String("userName", userName))
+		zap.String("userName", userName),
+		zap.Bool("waitForMetadata", waitForMetadata))
 
 	// 用户信息作为独立参数传递
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata)
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, waitForMetadata)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
 		return
 	}
-	response.OkWithDetailed(exampleRes.ExaFileResponse{File: file}, "上传成功", c)
+
+	// 根据处理状态返回不同的消息
+	msg := "上传成功"
+	if waitForMetadata && file.ProcessStatus == example.ProcessStatusCompleted {
+		msg = "上传成功，文件处理完成"
+	} else if waitForMetadata {
+		msg = fmt.Sprintf("上传成功，文件处理状态: %s", file.ProcessStatus)
+	}
+
+	response.OkWithDetailed(exampleRes.ExaFileResponse{File: file}, msg, c)
 }
 
 // parseTagsFromForm 解析表单中的tags字符串为标签数组
