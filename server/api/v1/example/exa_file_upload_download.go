@@ -47,10 +47,9 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	userID := utils.GetUserID(c)
 	userName := utils.GetUserName(c)
 
-	// 构建业务元数据（不再包含用户信息）
+	// 构建业务元数据
 	bizMetadata := example.BizMetadata{
-		Tags:    parseTagsFromForm(c.PostForm("tags")),
-		Remarks: c.PostForm("remarks"),
+		Tags: parseTagsFromForm(c.PostForm("tags")),
 	}
 
 	// 获取是否等待metadata参数
@@ -186,7 +185,8 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		searchInfo.PageSize = 10
 	}
 
-	// 执行搜索（支持向量搜索和传统搜索）
+	searchInfo.GetSearchDefaults()
+
 	var vectorDocumentIDs []string
 	var vectorScores map[uint]float64
 	var searchType string
@@ -232,7 +232,6 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		searchType = "传统搜索"
 	}
 
-	// 使用统一的搜索方法执行文件搜索
 	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoListWithVectorFilter(searchInfo, vectorDocumentIDs)
 	if err != nil {
 		global.GVA_LOG.Error("文件搜索失败!", zap.Error(err))
@@ -240,7 +239,6 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		return
 	}
 
-	// 如果是向量搜索，应用分数并排序
 	if searchInfo.IsVectorSearch() {
 		list = fileUploadAndDownloadService.ApplyVectorScoresToResults(list, vectorScores)
 		global.GVA_LOG.Info("文件搜索完成",

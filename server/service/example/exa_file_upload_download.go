@@ -83,11 +83,6 @@ func (e *FileUploadAndDownloadService) bizMetadataToMinioMetadata(bizMetadata *e
 		}
 	}
 
-	// 处理备注
-	if bizMetadata.Remarks != "" {
-		metadata["remarks"] = bizMetadata.Remarks
-	}
-
 	// 将整个BizMetadata结构体序列化为JSON，方便后续检索
 	fullMetadataJSON, err := json.Marshal(bizMetadata)
 	if err == nil {
@@ -456,25 +451,10 @@ func (e *FileUploadAndDownloadService) searchDocumentIDsWithScores(prompt string
 
 // SearchVectorDocuments 执行向量搜索，返回匹配的文档ID和分数
 func (e *FileUploadAndDownloadService) SearchVectorDocuments(prompt string, knowledgeIDs []string, topK int, minScore float64, searchType int) (*searchResult, error) {
-	// 设置默认值
-	if topK <= 0 {
-		topK = 30
-	}
-	if minScore < 0 {
-		minScore = 0.0
-	}
-	if searchType < 0 || searchType > 2 {
-		searchType = 2 // 默认混合检索
-	}
-	// 如果KnowledgeIDs为空，使用默认配置
-	if len(knowledgeIDs) == 0 {
-		knowledgeIDs = e.getDefaultKnowledgeIDs()
-	}
-
+	// 默认值已在API层的GetSearchDefaults()中设置，这里不再重复处理
 	return e.searchDocumentIDsWithScores(prompt, knowledgeIDs, topK, minScore, searchType)
 }
 
-// getDefaultKnowledgeIDs 获取默认的知识库ID列表
 func (e *FileUploadAndDownloadService) getDefaultKnowledgeIDs() []string {
 	var categories []example.ExaAttachmentCategory
 	if err := global.GVA_DB.Where("knowledge_id != ?", "").Find(&categories).Error; err == nil {
@@ -525,7 +505,6 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(inf
 	return list, total, err
 }
 
-// ApplyVectorScoresToResults 将向量搜索分数应用到搜索结果中
 func (e *FileUploadAndDownloadService) ApplyVectorScoresToResults(list []example.ExaFileUploadAndDownload, scores map[uint]float64) []example.ExaFileUploadAndDownload {
 	if scores == nil {
 		return list
@@ -548,15 +527,22 @@ func (e *FileUploadAndDownloadService) ApplyVectorScoresToResults(list []example
 
 // applyBizMetadataFilters 应用业务元数据过滤条件
 func (e *FileUploadAndDownloadService) applyBizMetadataFilters(db *gorm.DB, info request.ExaFileSearchRequest) {
-	// 标签过滤 - 支持多个标签，要求文件包含所有指定标签
 	if len(info.Tags) > 0 {
 		for _, tag := range info.Tags {
-			db = db.Where("JSON_CONTAINS(biz_metadata->'$.tags', JSON_QUOTE(?))", tag)
+			trimmedTag := strings.TrimSpace(tag)
+			if trimmedTag != "" {
+				db = db.Where("JSON_CONTAINS(biz_metadata->'$.tags', JSON_QUOTE(?))", trimmedTag)
+			}
 		}
 	}
 
-	// 用户名过滤
+	// 用户ID过滤（优先使用）
+	if info.UserId > 0 {
+		db = db.Where("user_id = ?", info.UserId)
+	}
+
+	// 用户名过滤（可选，用于显示）
 	if info.Username != "" {
-		db = db.Where("JSON_EXTRACT(biz_metadata, '$.username') = ?", info.Username)
+		db = db.Where("username = ?", info.Username)
 	}
 }

@@ -67,9 +67,6 @@ type BizMetadata struct {
 	// 自定义标签 - 用户或业务系统定义的标签
 	Tags []string `json:"tags" form:"tags"`
 
-	// 备注信息 - 业务相关的补充说明
-	Remarks string `json:"remarks" form:"remarks"`
-
 	// 扩展字段 - 其他业务相关的自定义字段
 	ExtraFields map[string]interface{} `json:"extraFields" form:"extraFields"`
 }
