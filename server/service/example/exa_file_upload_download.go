@@ -1,6 +1,7 @@
 package example
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -64,6 +65,66 @@ func NewFileUploadAndDownloadService() *FileUploadAndDownloadService {
 	return &FileUploadAndDownloadService{
 		fileProcessor: processor,
 	}
+}
+
+// bizMetadataToMinioMetadata 将业务元数据转换为MinIO元数据格式
+func (e *FileUploadAndDownloadService) bizMetadataToMinioMetadata(bizMetadata *example.BizMetadata) map[string]string {
+	if bizMetadata == nil {
+		return nil
+	}
+
+	metadata := make(map[string]string)
+
+	// 处理标签数组 - 转换为JSON字符串
+	if len(bizMetadata.Tags) > 0 {
+		tagsJSON, err := json.Marshal(bizMetadata.Tags)
+		if err == nil {
+			metadata["tags"] = string(tagsJSON)
+		}
+	}
+
+	// 处理备注
+	if bizMetadata.Remarks != "" {
+		metadata["remarks"] = bizMetadata.Remarks
+	}
+
+	// 将整个BizMetadata结构体序列化为JSON，方便后续检索
+	fullMetadataJSON, err := json.Marshal(bizMetadata)
+	if err == nil {
+		metadata["biz_metadata"] = string(fullMetadataJSON)
+	}
+
+	return metadata
+}
+
+func (e *FileUploadAndDownloadService) fileToMinioTags(userID uint, userName string, bizMetadata *example.BizMetadata) map[string]string {
+	tags := make(map[string]string)
+
+	maxBusinessTags := 8
+	if userID > 0 {
+		tags["user-id"] = fmt.Sprintf("%d", userID)
+		maxBusinessTags-- // user-id占用一个标签位
+	}
+
+	if userName != "" {
+		tags["username"] = userName
+		maxBusinessTags-- // username占用一个标签位
+	}
+
+	if bizMetadata != nil && len(bizMetadata.Tags) > 0 {
+		for i, tag := range bizMetadata.Tags {
+			if i >= maxBusinessTags {
+				global.GVA_LOG.Warn("MinIO标签数量超限，部分标签未设置",
+					zap.Int("maxTags", maxBusinessTags),
+					zap.Int("totalTags", len(bizMetadata.Tags)))
+				break
+			}
+			// 使用tag-0, tag-1, tag-2等作为标签键
+			tags[fmt.Sprintf("tag-%d", i)] = tag
+		}
+	}
+
+	return tags
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)
@@ -161,11 +222,11 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //@return: file model.ExaFileUploadAndDownload, err error
 
 func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
-	return e.UploadFileWithMetadata(header, noSave, classId, nil)
+	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil)
 }
 
 // UploadFileWithMetadata 上传文件并支持业务元数据
-func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, bizMetadata *example.BizMetadata) (file example.ExaFileUploadAndDownload, err error) {
+func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
 		var existingFile example.ExaFileUploadAndDownload
@@ -181,7 +242,39 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 	}
 
 	oss := upload.NewOss()
-	filePath, key, uploadErr := oss.UploadFile(header)
+
+	// 转换业务元数据为MinIO元数据和标签
+	minioMetadata := e.bizMetadataToMinioMetadata(bizMetadata)
+	minioTags := e.fileToMinioTags(userID, userName, bizMetadata)
+
+	var filePath, key string
+	var uploadErr error
+
+	// 检查是否为MinIO客户端，支持标签和元数据
+	if minioClient, ok := oss.(*upload.Minio); ok && (minioMetadata != nil || minioTags != nil) {
+		filePath, key, uploadErr = minioClient.UploadFileWithMetadataAndTags(header, minioMetadata, minioTags)
+		global.GVA_LOG.Info("使用MinIO混合方案上传（元数据+标签）",
+			zap.String("filename", header.Filename),
+			zap.Uint("userID", userID),
+			zap.String("userName", userName),
+			zap.Any("metadata", minioMetadata),
+			zap.Any("tags", minioTags))
+	} else if ossWithMetadata, ok := oss.(interface {
+		UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, error)
+	}); ok && minioMetadata != nil {
+		// 其他支持元数据的存储后端
+		filePath, key, uploadErr = ossWithMetadata.UploadFileWithMetadata(header, minioMetadata)
+		global.GVA_LOG.Info("使用带元数据的上传方法",
+			zap.String("filename", header.Filename),
+			zap.Any("metadata", minioMetadata))
+	} else {
+		// 不支持元数据的存储后端
+		filePath, key, uploadErr = oss.UploadFile(header)
+		if minioMetadata != nil || minioTags != nil {
+			global.GVA_LOG.Warn("存储后端不支持元数据和标签，使用普通上传方法",
+				zap.String("filename", header.Filename))
+		}
+	}
 	if uploadErr != nil {
 		return file, uploadErr
 	}
@@ -192,6 +285,8 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 		ClassId:       classId,
 		FileType:      s[len(s)-1],
 		Key:           key,
+		UserID:        userID,                       // 设置用户ID
+		Username:      userName,                     // 设置用户名
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
 	}
 

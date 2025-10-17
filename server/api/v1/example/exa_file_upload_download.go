@@ -26,7 +26,6 @@ type FileUploadAndDownloadApi struct{}
 // @Param     file  formData  file                                                           true  "上传文件示例"
 // @Param     classId  formData  int                                                            false  "分类ID，默认为1"
 // @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
-// @Param     username  formData  string                                                       false  "用户名，留空则使用当前登录用户名"
 // @Param     remarks  formData  string                                                       false  "备注信息"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
@@ -48,26 +47,19 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	userID := utils.GetUserID(c)
 	userName := utils.GetUserName(c)
 
-	// 解析业务元数据参数，优先使用表单提供的username，否则使用当前用户
-	usernameValue := c.PostForm("username")
-	if usernameValue == "" {
-		// 如果表单中没有提供username，使用当前用户名
-		usernameValue = userName
-	}
-
+	// 构建业务元数据（不再包含用户信息）
 	bizMetadata := example.BizMetadata{
-		Tags:     parseTagsFromForm(c.PostForm("tags")),
-		Username: usernameValue,
-		Remarks:  c.PostForm("remarks"),
+		Tags:    parseTagsFromForm(c.PostForm("tags")),
+		Remarks: c.PostForm("remarks"),
 	}
 
 	// 记录上传用户信息
 	global.GVA_LOG.Info("文件上传用户信息",
 		zap.Uint("userID", userID),
-		zap.String("userName", userName),
-		zap.String("fileUsername", usernameValue))
+		zap.String("userName", userName))
 
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, &bizMetadata) // 文件上传后拿到文件路径
+	// 用户信息作为独立参数传递
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)

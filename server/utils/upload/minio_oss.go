@@ -20,6 +20,9 @@ import (
 
 var MinioClient *Minio // 优化性能，但是不支持动态配置
 
+// 确保 Minio 结构体实现了 OSSWithMetadata 接口
+var _ OSSWithMetadata = (*Minio)(nil)
+
 type Minio struct {
 	Client *minio.Client
 	bucket string
@@ -53,6 +56,16 @@ func GetMinio(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL 
 }
 
 func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string, uploadErr error) {
+	return m.UploadFileWithMetadata(file, nil)
+}
+
+// UploadFileWithMetadata 上传文件并支持自定义元数据
+func (m *Minio) UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (filePathres, key string, uploadErr error) {
+	return m.UploadFileWithMetadataAndTags(file, metadata, nil)
+}
+
+// UploadFileWithMetadataAndTags 上传文件并支持自定义元数据和标签
+func (m *Minio) UploadFileWithMetadataAndTags(file *multipart.FileHeader, metadata map[string]string, tags map[string]string) (filePathres, key string, uploadErr error) {
 	f, openError := file.Open()
 	// mutipart.File to os.File
 	if openError != nil {
@@ -84,16 +97,44 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 		contentType = "application/octet-stream"
 	}
 
+	// 构建用户元数据
+	userMetadata := make(map[string]string)
+	if metadata != nil {
+		// 将所有元数据添加前缀，符合MinIO的元数据命名规范
+		for key, value := range metadata {
+			// MinIO要求用户元数据必须以"x-amz-meta-"开头
+			userMetadata["x-amz-meta-"+key] = value
+		}
+	}
+
+	// 构建标签字符串（MinIO 使用 URL-encoded 格式）
+	var userTags map[string]string
+	if tags != nil && len(tags) > 0 {
+		userTags = tags
+	}
+
 	// 设置超时10分钟
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
 
 	// Upload the file with PutObject   大文件自动切换为分片上传
-	info, err := m.Client.PutObject(ctx, global.GVA_CONFIG.Minio.BucketName, filePathres, &filecontent, file.Size, minio.PutObjectOptions{ContentType: contentType})
+	putOptions := minio.PutObjectOptions{
+		ContentType:  contentType,
+		UserMetadata: userMetadata,
+		UserTags:     userTags,
+	}
+
+	info, err := m.Client.PutObject(ctx, global.GVA_CONFIG.Minio.BucketName, filePathres, &filecontent, file.Size, putOptions)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件到minio失败", zap.Any("err", err.Error()))
 		return "", "", errors.New("上传文件到minio失败, err:" + err.Error())
 	}
+
+	global.GVA_LOG.Info("文件上传到MinIO成功",
+		zap.String("objectName", info.Key),
+		zap.Any("metadata", metadata),
+		zap.Any("tags", tags))
+
 	return global.GVA_CONFIG.Minio.BucketUrl + "/" + info.Key, filePathres, nil
 }
 

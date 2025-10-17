@@ -14,10 +14,14 @@ type ExaFileUploadAndDownload struct {
 	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
 	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
 
+	// 用户信息 - 一级字段，便于查询和索引
+	UserID   uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`      // 上传用户ID
+	Username string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"`   // 上传用户名
+
 	// 文件元数据 - 只存储纯文件理解结果
 	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据"`
 
-	// 业务元数据 - 存储业务相关的自定义信息
+	// 业务元数据 - 存储业务相关的自定义信息（不包含用户信息）
 	BizMetadata BizMetadata `json:"bizMetadata" form:"bizMetadata" gorm:"serializer:json;type:json;column:biz_metadata;comment:业务元数据"`
 
 	// 处理状态相关字段 - 独立管理
@@ -58,12 +62,10 @@ type ImageDimensions struct {
 }
 
 // BizMetadata 存储业务相关的自定义信息
+// 注意：用户信息（UserID, Username）已提升为 ExaFileUploadAndDownload 的一级字段
 type BizMetadata struct {
 	// 自定义标签 - 用户或业务系统定义的标签
 	Tags []string `json:"tags" form:"tags"`
-
-	// 用户名 - 文件上传者或指定的用户名
-	Username string `json:"username" form:"username"`
 
 	// 备注信息 - 业务相关的补充说明
 	Remarks string `json:"remarks" form:"remarks"`

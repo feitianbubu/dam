@@ -14,6 +14,13 @@ type OSS interface {
 	DeleteFile(key string) error
 }
 
+// OSSWithMetadata 支持元数据的对象存储接口
+type OSSWithMetadata interface {
+	UploadFile(file *multipart.FileHeader) (string, string, error)
+	UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, error)
+	DeleteFile(key string) error
+}
+
 // NewOss OSS的实例化方法
 // Author [SliverHorn](https://github.com/SliverHorn)
 // Author [ccfish86](https://github.com/ccfish86)
