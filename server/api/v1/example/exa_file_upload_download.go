@@ -25,6 +25,7 @@ type FileUploadAndDownloadApi struct{}
 // @Produce   application/json
 // @Param     file  formData  file                                                           true  "上传文件示例"
 // @Param     classId  formData  int                                                            false  "分类ID，默认为1"
+// @Param     projectId  formData  string                                                       false  "项目ID"
 // @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
 // @Param     waitForMetadata  formData  bool                                                   false  "是否等待metadata处理完成再返回，默认false（异步处理）"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
@@ -49,7 +50,8 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 
 	// 构建业务元数据
 	bizMetadata := example.BizMetadata{
-		Tags: parseTagsFromForm(c.PostForm("tags")),
+		ProjectID: c.PostForm("projectId"),
+		Tags:      parseTagsFromForm(c.PostForm("tags")),
 	}
 
 	// 获取是否等待metadata参数
@@ -59,6 +61,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	global.GVA_LOG.Info("文件上传用户信息",
 		zap.Uint("userID", userID),
 		zap.String("userName", userName),
+		zap.String("projectId", bizMetadata.ProjectID),
 		zap.Bool("waitForMetadata", waitForMetadata))
 
 	// 用户信息作为独立参数传递
@@ -168,7 +171,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
-// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 标签过滤, 用户名过滤, 可选的向量搜索参数"
+// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 项目id, 标签过滤, 用户名过滤, 可选的向量搜索参数"
 // @Success   200   {object}  response.Response{data=response.PageResult,msg=string}  "分页文件列表,返回包括列表,总数,页码,每页数量"
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {

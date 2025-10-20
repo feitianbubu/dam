@@ -515,6 +515,11 @@ func (e *FileUploadAndDownloadService) applyBizMetadataFilters(db *gorm.DB, info
 		}
 	}
 
+	// 项目ID过滤
+	if info.ProjectId != "" {
+		db = db.Where("JSON_EXTRACT(biz_metadata, '$.projectId') = ?", info.ProjectId)
+	}
+
 	// 用户ID过滤（优先使用）
 	if info.UserId > 0 {
 		db = db.Where("user_id = ?", info.UserId)

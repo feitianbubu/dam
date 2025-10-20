@@ -64,6 +64,9 @@ type ImageDimensions struct {
 // BizMetadata 存储业务相关的自定义信息
 // 注意：用户信息（UserID, Username）已提升为 ExaFileUploadAndDownload 的一级字段
 type BizMetadata struct {
+	// 项目ID - 关联的项目标识
+	ProjectID string `json:"projectId" form:"projectId"`
+
 	// 自定义标签 - 用户或业务系统定义的标签
 	Tags []string `json:"tags" form:"tags"`
 

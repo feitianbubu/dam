@@ -17,10 +17,11 @@ type VectorSearchParams struct {
 
 // ExaFileSearchRequest 文件搜索请求，支持传统搜索和向量搜索
 type ExaFileSearchRequest struct {
-	ClassId  int      `json:"classId" form:"classId"`   // 分类ID
-	Tags     []string `json:"tags" form:"tags"`         // 标签过滤，支持多个标签
-	UserId   uint     `json:"userId" form:"userId"`     // 用户ID过滤
-	Username string   `json:"username" form:"username"` // 用户名过滤（可选，用于显示）
+	ClassId   int      `json:"classId" form:"classId"`     // 分类ID
+	ProjectId string   `json:"projectId" form:"projectId"` // 项目ID过滤
+	Tags      []string `json:"tags" form:"tags"`           // 标签过滤，支持多个标签
+	UserId    uint     `json:"userId" form:"userId"`       // 用户ID过滤
+	Username  string   `json:"username" form:"username"`   // 用户名过滤（可选，用于显示）
 	VectorSearchParams
 	request.PageInfo
 }
