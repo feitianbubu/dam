@@ -72,18 +72,15 @@ func NewMultimodalAPIClient() *MultimodalAPIClient {
 func (c *MultimodalAPIClient) AnalyzeFile(filePath string, fileType string) (*example.FileMetadata, error) {
 	if !c.enabled {
 		global.GVA_LOG.Info("文件理解功能未启用，跳过处理", zap.String("filePath", filePath))
-		return &example.FileMetadata{
-			Description:  fmt.Sprintf("文件理解功能未启用 - %s", fileType),
-			ContentType:  fileType,
-			DetectedText: "",
-			Objects:      []string{},
-			Tags:         []string{"skipped"},
-			FileSize:     0,
-			Language:     "unknown",
-			Category:     "unknown",
-			Confidence:   0.0,
-			ExtraData:    make(map[string]interface{}),
-		}, nil
+		// 返回空的 FileMetadata
+		metadata := example.FileMetadata{}
+		_ = metadata.FromMap(map[string]interface{}{
+			"description": fmt.Sprintf("文件理解功能未启用 - %s", fileType),
+			"contentType": fileType,
+			"tags":        []string{"skipped"},
+			"category":    "unknown",
+		})
+		return &metadata, nil
 	}
 
 	if !c.IsFileTypeSupported(fileType) {
@@ -225,11 +222,12 @@ func (c *MultimodalAPIClient) analyzeWithOpenAI(ctx context.Context, filePath, f
 	content := resp.Choices[0].Message.Content
 	global.GVA_LOG.Info("OpenAI API返回结果", zap.String("content", content))
 
-	metadata := &example.FileMetadata{
-		Description: content,
-	}
+	// 创建 FileMetadata 并设置描述
+	metadata := example.FileMetadata{}
+	_ = metadata.Set("description", content)
+	_ = metadata.Set("contentType", fileType)
 
-	return metadata, nil
+	return &metadata, nil
 }
 
 func (c *MultimodalAPIClient) getCategoryByFileType(fileType string) string {

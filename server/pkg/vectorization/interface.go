@@ -1,5 +1,9 @@
 package vectorization
 
+import (
+	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
+)
+
 // VectorizationService 向量化服务通用接口
 type VectorizationService interface {
 	// 知识库管理
@@ -63,30 +67,30 @@ type KnowledgeBaseList struct {
 
 // UploadDocumentRequest 上传文档请求
 type UploadDocumentRequest struct {
-	KnowledgeBaseID string            `json:"knowledge_base_id"`
-	Name            string            `json:"name"`
-	Content         string            `json:"content"`
-	ContentType     string            `json:"content_type"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
-	ChunkStrategy   *ChunkStrategy    `json:"chunk_strategy,omitempty"`
-	ParsingStrategy *ParsingStrategy  `json:"parsing_strategy,omitempty"`
+	KnowledgeBaseID string               `json:"knowledge_base_id"`
+	Name            string               `json:"name"`
+	Content         string               `json:"content"`
+	ContentType     string               `json:"content_type"`
+	Metadata        example.FileMetadata `json:"metadata,omitempty"`
+	ChunkStrategy   *ChunkStrategy       `json:"chunk_strategy,omitempty"`
+	ParsingStrategy *ParsingStrategy     `json:"parsing_strategy,omitempty"`
 }
 
 // Document 文档信息
 type Document struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Status      string            `json:"status"`
-	ContentType string            `json:"content_type"`
-	Type        string            `json:"type,omitempty"`
-	Size        int64             `json:"size"`
-	CharCount   int               `json:"char_count,omitempty"`
-	SliceCount  int               `json:"slice_count,omitempty"`
-	HitCount    int               `json:"hit_count,omitempty"`
-	CreateTime  int64             `json:"create_time"`
-	UpdateTime  int64             `json:"update_time,omitempty"`
-	CreatorID   string            `json:"creator_id,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Status      string               `json:"status"`
+	ContentType string               `json:"content_type"`
+	Type        string               `json:"type,omitempty"`
+	Size        int64                `json:"size"`
+	CharCount   int                  `json:"char_count,omitempty"`
+	SliceCount  int                  `json:"slice_count,omitempty"`
+	HitCount    int                  `json:"hit_count,omitempty"`
+	CreateTime  int64                `json:"create_time"`
+	UpdateTime  int64                `json:"update_time,omitempty"`
+	CreatorID   string               `json:"creator_id,omitempty"`
+	Metadata    example.FileMetadata `json:"metadata,omitempty"`
 }
 
 // ListDocumentsRequest 获取文档列表请求

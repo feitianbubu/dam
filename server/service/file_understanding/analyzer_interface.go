@@ -53,18 +53,7 @@ func (b *BaseAnalyzer) CheckFileTypeSupport(fileType string, supportedTypes []st
 
 // CreateDisabledResponse 创建分析器未启用时的默认响应
 func (b *BaseAnalyzer) CreateDisabledResponse(filePath, fileType, analyzerName string) *example.FileMetadata {
-	return &example.FileMetadata{
-		Description:  analyzerName + "分析功能未启用",
-		ContentType:  fileType,
-		DetectedText: "",
-		Objects:      []string{},
-		Tags:         []string{"skipped", strings.ToLower(analyzerName)},
-		FileSize:     0,
-		Language:     "unknown",
-		Category:     strings.ToLower(analyzerName),
-		Confidence:   0.0,
-		ExtraData:    make(map[string]interface{}),
-	}
+	return &example.FileMetadata{}
 }
 
 // LogAnalysisStart 记录分析开始日志

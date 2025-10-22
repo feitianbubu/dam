@@ -193,24 +193,24 @@ func (a *VideoAnalyzer) analyzeVideoWithDirectHTTP(ctx context.Context, filePath
 		zap.String("filePath", filePath),
 		zap.String("content", content))
 
-	// 构建FileMetadata
-	metadata := &example.FileMetadata{
-		Description:  content,
-		ContentType:  fileType,
-		DetectedText: "",
-		Objects:      []string{},
-		Tags:         []string{"ai-analyzed", "video", fileType},
-		FileSize:     0,
-		Language:     "auto-detected",
-		Category:     "video",
-		Confidence:   0.8,
-		ExtraData: map[string]interface{}{
+	// 构建 FileMetadata
+	metadata := example.FileMetadata{}
+	_ = metadata.FromMap(map[string]interface{}{
+		"description":  content,
+		"contentType":  fileType,
+		"detectedText": "",
+		"objects":      []string{},
+		"tags":         []string{"ai-analyzed", "video", fileType},
+		"language":     "auto-detected",
+		"category":     "video",
+		"confidence":   0.8,
+		"extraData": map[string]interface{}{
 			"model":        modelConfig.Model,
 			"tokens":       apiResponse.Usage.TotalTokens,
 			"rawResponse":  content,
 			"analyzed_via": "direct_http",
 		},
-	}
+	})
 
-	return metadata, nil
+	return &metadata, nil
 }

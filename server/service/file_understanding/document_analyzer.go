@@ -66,31 +66,28 @@ func (a *DocumentAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fil
 	a.LogAnalysisStart(filePath, fileType, "文档", modelConfig)
 	global.GVA_LOG.Info("文档内容长度", zap.Int("contentLength", len(content)))
 
-	metadata := &example.FileMetadata{
-		ContentType:  fileType,
-		DetectedText: "",
-		Objects:      []string{},
-		Tags:         []string{"ai-analyzed"},
-		FileSize:     0,
-		Language:     "auto-detected",
-		Category:     a.client.getCategoryByFileType(fileType),
-		Confidence:   0.8,
-	}
+	metadata := example.FileMetadata{}
 
 	if !slices.Contains([]string{"txt", "ini", "md", "log"}, fileType) {
 		aiMetadata, err := a.client.analyzeWithOpenAI(ctx, filePath, fileType, modelConfig, messageParts)
 		if err != nil {
 			return nil, err
 		}
-		content = aiMetadata.Description
+		// 从 aiMetadata 中提取描述
+		if desc, err := aiMetadata.GetString("description"); err == nil {
+			content = desc
+		}
 	}
-	metadata.Description = content
+	_ = metadata.Set("description", content)
+	_ = metadata.Set("contentType", fileType)
+	_ = metadata.Set("category", "document")
 
 	// 为文档添加特定标签
-	metadata.Tags = append(metadata.Tags, "document", fileType)
-	metadata.Category = "document"
+	_ = metadata.Set("tags", []string{"document", fileType})
 
-	a.LogAnalysisComplete(filePath, "文档", metadata.Description)
+	// 获取描述用于日志
+	description, _ := metadata.GetString("description")
+	a.LogAnalysisComplete(filePath, "文档", description)
 
-	return metadata, nil
+	return &metadata, nil
 }

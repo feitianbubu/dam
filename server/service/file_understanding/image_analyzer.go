@@ -61,10 +61,18 @@ func (a *ImageAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 	}
 
 	// 为图片添加特定标签
-	metadata.Tags = append(metadata.Tags, "image")
-	metadata.Category = "image"
+	var tags []string
+	if err := metadata.Get("tags", &tags); err == nil {
+		tags = append(tags, "image")
+		_ = metadata.Set("tags", tags)
+	} else {
+		_ = metadata.Set("tags", []string{"image"})
+	}
+	_ = metadata.Set("category", "image")
 
-	a.LogAnalysisComplete(filePath, "图片", metadata.Description)
+	// 获取描述用于日志
+	description, _ := metadata.GetString("description")
+	a.LogAnalysisComplete(filePath, "图片", description)
 
 	return metadata, nil
 }

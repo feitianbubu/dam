@@ -110,29 +110,13 @@ func (a *AudioAnalyzer) AnalyzeFile(ctx context.Context, filePath string, fileTy
 	}
 
 	// 获取文件大小
-	var fileSize int64
-	if fileInfo, err := os.Stat(localFilePath); err == nil {
-		fileSize = fileInfo.Size()
-	}
+	//var fileSize int64
+	//if fileInfo, err := os.Stat(localFilePath); err == nil {
+	//	fileSize = fileInfo.Size()
+	//}
 
 	// 构建FileMetadata
-	metadata := &example.FileMetadata{
-		Description:  description,
-		ContentType:  fileType,
-		DetectedText: resp.Text,
-		Objects:      objects,
-		Tags:         append(tags, "audio", fileType),
-		FileSize:     fileSize,
-		Language:     resp.Language,
-		Category:     "audio",
-		Confidence:   0.9, // Whisper API通常有较高的准确度
-		ExtraData: map[string]interface{}{
-			"model":       audioModel,
-			"duration":    resp.Duration,
-			"segments":    resp.Segments,
-			"rawResponse": resp.Text,
-		},
-	}
+	metadata := &example.FileMetadata{}
 
 	a.LogAnalysisComplete(filePath, "音频", description)
 	global.GVA_LOG.Info("音频转录详情", zap.String("language", resp.Language))

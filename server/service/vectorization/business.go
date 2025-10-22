@@ -138,15 +138,8 @@ func (s *BusinessService) doVectorization(fileID uint, file *example.ExaFileUplo
 		KnowledgeBaseID: category.KnowledgeID,
 		Name:            file.Name,
 		Content:         content,
-		ContentType:     file.Metadata.ContentType,
-		Metadata: map[string]string{
-			"file_id":     fmt.Sprintf("%d", file.ID),
-			"file_size":   fmt.Sprintf("%d", file.Metadata.FileSize),
-			"language":    file.Metadata.Language,
-			"category":    file.Metadata.Category,
-			"confidence":  fmt.Sprintf("%.2f", file.Metadata.Confidence),
-			"upload_time": time.Now().Format(time.RFC3339),
-		},
+		ContentType:     file.FileType, //todo sky convert
+		Metadata:        file.Metadata,
 		ChunkStrategy:   GetDefaultChunkStrategy(),
 		ParsingStrategy: GetDefaultParsingStrategy(),
 	}
@@ -221,7 +214,7 @@ func (s *BusinessService) buildDocumentContent(file *example.ExaFileUploadAndDow
 	//}
 
 	//return content.String()
-	return file.Metadata.Description
+	return file.Metadata.String()
 }
 
 func (s *BusinessService) isKnowledgeBaseNotFoundError(err error) bool {

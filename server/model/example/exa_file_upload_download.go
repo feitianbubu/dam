@@ -1,6 +1,8 @@
 package example
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -15,11 +17,11 @@ type ExaFileUploadAndDownload struct {
 	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
 
 	// 用户信息 - 一级字段，便于查询和索引
-	UserID   uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`      // 上传用户ID
-	Username string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"`   // 上传用户名
+	UserID   uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`    // 上传用户ID
+	Username string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"` // 上传用户名
 
 	// 文件元数据 - 只存储纯文件理解结果
-	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据"`
+	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据" swaggertype:"object"`
 
 	// 业务元数据 - 存储业务相关的自定义信息（不包含用户信息）
 	BizMetadata BizMetadata `json:"bizMetadata" form:"bizMetadata" gorm:"serializer:json;type:json;column:biz_metadata;comment:业务元数据"`
@@ -42,18 +44,107 @@ type ExaFileUploadAndDownload struct {
 }
 
 // FileMetadata 只存储文件理解的纯元数据
-type FileMetadata struct {
-	Description  string                 `json:"description"`  // AI生成的文件描述
-	ContentType  string                 `json:"contentType"`  // 检测到的内容类型
-	DetectedText string                 `json:"detectedText"` // 提取的文本内容
-	Objects      []string               `json:"objects"`      // 检测到的对象/实体
-	Tags         []string               `json:"tags"`         // 自动生成的标签
-	FileSize     int64                  `json:"fileSize"`     // 文件大小
-	Dimensions   *ImageDimensions       `json:"dimensions"`   // 图片尺寸(如果是图片)
-	Language     string                 `json:"language"`     // 检测到的语言
-	Category     string                 `json:"category"`     // 文件类别
-	Confidence   float64                `json:"confidence"`   // AI理解的置信度
-	ExtraData    map[string]interface{} `json:"extraData"`    // 扩展数据
+// 使用 json.RawMessage 提供最大灵活性，支持动态结构
+type FileMetadata json.RawMessage
+
+// String 返回 JSON 字符串表示
+func (m FileMetadata) String() string {
+	if len(m) == 0 {
+		return "{}"
+	}
+	return string(m)
+}
+
+// MarshalJSON 实现 json.Marshaler 接口
+func (m FileMetadata) MarshalJSON() ([]byte, error) {
+	if len(m) == 0 {
+		return []byte("{}"), nil
+	}
+	return m, nil
+}
+
+// UnmarshalJSON 实现 json.Unmarshaler 接口
+func (m *FileMetadata) UnmarshalJSON(data []byte) error {
+	if m == nil {
+		return fmt.Errorf("FileMetadata: UnmarshalJSON on nil pointer")
+	}
+	*m = append((*m)[0:0], data...)
+	return nil
+}
+
+// Set 设置任意键值对
+func (m *FileMetadata) Set(key string, value interface{}) error {
+	var data map[string]interface{}
+	if len(*m) > 0 {
+		if err := json.Unmarshal(*m, &data); err != nil {
+			return fmt.Errorf("无法解析现有 metadata: %w", err)
+		}
+	} else {
+		data = make(map[string]interface{})
+	}
+
+	data[key] = value
+
+	newData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("无法序列化 metadata: %w", err)
+	}
+
+	*m = newData
+	return nil
+}
+
+// Get 获取指定键的值，并解析到目标类型
+func (m FileMetadata) Get(key string, target interface{}) error {
+	var data map[string]interface{}
+	if err := json.Unmarshal(m, &data); err != nil {
+		return fmt.Errorf("无法解析 metadata: %w", err)
+	}
+
+	value, exists := data[key]
+	if !exists {
+		return fmt.Errorf("键 %s 不存在", key)
+	}
+
+	// 重新序列化后再解析到目标类型（处理类型转换）
+	valueBytes, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(valueBytes, target)
+}
+
+// GetString 获取字符串值
+func (m FileMetadata) GetString(key string) (string, error) {
+	var result string
+	err := m.Get(key, &result)
+	return result, err
+}
+
+// ToMap 转换为 map 以便访问
+func (m FileMetadata) ToMap() (map[string]interface{}, error) {
+	var data map[string]interface{}
+	if len(m) == 0 {
+		return make(map[string]interface{}), nil
+	}
+	err := json.Unmarshal(m, &data)
+	return data, err
+}
+
+// FromMap 从 map 创建
+func (m *FileMetadata) FromMap(data map[string]interface{}) error {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	*m = bytes
+	return nil
+}
+
+// IsEmpty 检查是否为空
+func (m FileMetadata) IsEmpty() bool {
+	return len(m) == 0 || string(m) == "{}" || string(m) == "null"
 }
 
 type ImageDimensions struct {
