@@ -121,3 +121,66 @@ func (o *OidcApi) GetOidcLogoutURL(c *gin.Context) {
 
 	response.OkWithData(logoutURL, c)
 }
+
+// Token
+// @Tags     Oidc
+// @Summary  OIDC Token端点
+// @Accept   application/x-www-form-urlencoded
+// @Accept   application/json
+// @Produce  application/json
+// @Param    code           formData  string  false  "授权码 (grant_type=authorization_code时必需)"
+// @Param    redirect_uri   formData  string  false  "重定向URI (grant_type=authorization_code时必需)"
+// @Param    client_id      formData  string  true   "客户端ID"
+// @Param    client_secret  formData  string  true   "客户端密钥"
+// @Param    refresh_token  formData  string  false  "刷新令牌 (grant_type=refresh_token时必需)"
+// @Success  200  {object}  response.OidcTokenResponse  "返回访问令牌和相关信息"
+// @Failure  400  {object}  response.Response           "请求参数错误"
+// @Failure  401  {object}  response.Response           "客户端认证失败"
+// @Failure  500  {object}  response.Response           "服务器内部错误"
+// @Router   /oidc/token [post]
+func (o *OidcApi) Token(c *gin.Context) {
+	var req systemReq.OidcTokenRequest
+
+	// 支持form-urlencoded和JSON两种格式
+	contentType := c.GetHeader("Content-Type")
+	if contentType == "application/x-www-form-urlencoded" || contentType == "application/json" {
+		if err := c.ShouldBind(&req); err != nil {
+			c.JSON(400, gin.H{
+				"error":             "invalid_request",
+				"error_description": err.Error(),
+			})
+			return
+		}
+	} else {
+		c.JSON(400, gin.H{
+			"error":             "invalid_request",
+			"error_description": "Content-Type must be application/x-www-form-urlencoded or application/json",
+		})
+		return
+	}
+
+	tokenResp, err := oidcService.Token(req)
+	if err != nil {
+		// 根据错误类型返回不同的错误响应
+		if err.Error() == "无效的client_id" || err.Error() == "无效的client_secret" {
+			c.JSON(401, gin.H{
+				"error":             "invalid_client",
+				"error_description": err.Error(),
+			})
+		} else if err.Error() == "OIDC功能未启用" {
+			c.JSON(503, gin.H{
+				"error":             "temporarily_unavailable",
+				"error_description": err.Error(),
+			})
+		} else {
+			c.JSON(400, gin.H{
+				"error":             "invalid_request",
+				"error_description": err.Error(),
+			})
+		}
+		return
+	}
+
+	// 返回标准OIDC Token响应
+	c.JSON(200, tokenResp)
+}

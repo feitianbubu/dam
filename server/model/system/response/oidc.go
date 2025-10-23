@@ -30,3 +30,13 @@ type OidcLogoutResponse struct {
 	Enabled  bool   `json:"enabled"`  // 是否启用OIDC登出
 	LogoutURL string `json:"logoutUrl"` // 登出URL
 }
+
+// OidcTokenResponse OIDC Token端点响应
+type OidcTokenResponse struct {
+	AccessToken  string `json:"access_token"`            // 访问令牌
+	TokenType    string `json:"token_type"`              // 令牌类型
+	ExpiresIn    int64  `json:"expires_in"`              // 过期时间（秒）
+	RefreshToken string `json:"refresh_token,omitempty"` // 刷新令牌（可选）
+	IDToken      string `json:"id_token,omitempty"`      // ID令牌（可选）
+	Scope        string `json:"scope,omitempty"`         // 作用域（可选）
+}

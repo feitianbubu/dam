@@ -209,8 +209,29 @@ func (o *OidcService) HandleCallback(req systemReq.OidcCallbackRequest) (*system
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
 
+	//// 交换授权码获取令牌
+	//tokenResp, err := o.exchangeCodeForToken(config, req.Code)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to exchange code for token: %v", err)
+	//}
+	//
+	//// 获取用户信息
+	//userInfo, err := o.getUserInfo(config, tokenResp.AccessToken)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get user info: %v", err)
+	//}
+	//
+	//// 查找或创建用户
+	//user, err := o.findOrCreateUser(provider, userInfo)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to find or create user: %v", err)
+	//}
+
+	return o.exchangeCodeAndFetchUser(config, req.Code, provider)
+}
+func (o *OidcService) exchangeCodeAndFetchUser(config *OidcConfig, code, provider string) (*system.SysUser, error) {
 	// 交换授权码获取令牌
-	tokenResp, err := o.exchangeCodeForToken(config, req.Code)
+	tokenResp, err := o.exchangeCodeForToken(config, code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code for token: %v", err)
 	}
@@ -339,7 +360,6 @@ func (o *OidcService) buildAuthURL(config *OidcConfig, state string) (string, er
 	return authURL.String(), nil
 }
 
-// exchangeCodeForToken 交换授权码获取令牌
 func (o *OidcService) exchangeCodeForToken(config *OidcConfig, code string) (*OidcTokenResponse, error) {
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
@@ -561,4 +581,62 @@ func (o *OidcService) testOIDCConnection(discoveryURL string) error {
 	}
 
 	return nil
+}
+
+func (o *OidcService) Token(req systemReq.OidcTokenRequest) (*system.SysUser, error) {
+	if !global.GVA_CONFIG.OIDC.Enabled {
+		return nil, fmt.Errorf("OIDC功能未启用")
+	}
+
+	// 验证grant_type
+	if req.GrantType == "" {
+		req.GrantType = "authorization_code"
+	}
+	//if req.GrantType != "authorization_code" && req.GrantType != "refresh_token" {
+	//	return nil, fmt.Errorf("不支持的grant_type: %s", req.GrantType)
+	//}
+
+	// 获取OIDC配置
+	provider := global.GVA_CONFIG.OIDC.Provider
+	config := o.getOidcConfig(provider)
+	if config == nil {
+		return nil, fmt.Errorf("OIDC配置未找到")
+	}
+	config.ClientID = req.ClientID
+	config.ClientSecret = req.ClientSecret
+	config.RedirectURL = req.RedirectURI
+
+	// 授权码模式
+	if req.Code == "" {
+		return nil, fmt.Errorf("code参数不能为空")
+	}
+
+	return o.exchangeCodeAndFetchUser(config, req.Code, provider)
+}
+
+// refreshAccessToken 使用刷新令牌获取新的访问令牌
+func (o *OidcService) refreshAccessToken(config *OidcConfig, refreshToken string) (*OidcTokenResponse, error) {
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+	data.Set("client_id", config.ClientID)
+	data.Set("client_secret", config.ClientSecret)
+
+	resp, err := http.PostForm(config.TokenURL, data)
+	if err != nil {
+		return nil, fmt.Errorf("请求令牌端点失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("令牌请求失败 (状态码 %d): %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp OidcTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, fmt.Errorf("解析令牌响应失败: %v", err)
+	}
+
+	return &tokenResp, nil
 }
