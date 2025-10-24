@@ -12,7 +12,7 @@ import (
 // fileID: 文件ID
 // maxRetries: 最大重试次数
 // context: 处理上下文，用于日志标识
-func (e *FileUploadAndDownloadService) ProcessFileWithRetry(fileID uint, maxRetries int, context string) {
+func (e *FileUploadAndDownloadService) ProcessFileWithRetry(fileID uint, maxRetries int, context string) error {
 	global.GVA_LOG.Info("开始文件处理重试",
 		zap.String("context", context),
 		zap.Uint64("fileID", uint64(fileID)),
@@ -29,7 +29,7 @@ func (e *FileUploadAndDownloadService) ProcessFileWithRetry(fileID uint, maxRetr
 			global.GVA_LOG.Info("文件处理成功",
 				zap.String("context", context),
 				zap.Uint64("fileID", uint64(fileID)))
-			return
+			return nil
 		}
 
 		global.GVA_LOG.Warn("文件处理失败，准备重试",
@@ -47,4 +47,5 @@ func (e *FileUploadAndDownloadService) ProcessFileWithRetry(fileID uint, maxRetr
 		zap.String("context", context),
 		zap.Uint64("fileID", uint64(fileID)),
 		zap.Error(processErr))
+	return processErr
 }

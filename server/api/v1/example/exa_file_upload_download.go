@@ -305,7 +305,7 @@ func (b *FileUploadAndDownloadApi) ImportURL(c *gin.Context) {
 // @accept    application/json
 // @Produce   application/json
 // @Param     id  query  int  true  "文件ID"
-// @Success   200  {object}  response.Response{msg=string}  "重试文件处理"
+// @Success   200  {object}  response.Response{data=example.FileMetadata,msg=string}  "重试文件处理，返回处理后的metadata"
 // @Router    /fileUploadAndDownload/retryProcessing [post]
 func (b *FileUploadAndDownloadApi) RetryFileProcessing(c *gin.Context) {
 	var fileID uint
@@ -319,8 +319,28 @@ func (b *FileUploadAndDownloadApi) RetryFileProcessing(c *gin.Context) {
 		fileID = uint(id)
 	}
 
-	// 异步重试处理 - 使用通用重试逻辑
-	go fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 3, "手动文件处理重试")
+	// 同步重试处理 - 使用通用重试逻辑
+	err := fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 3, "手动文件处理重试")
+	if err != nil {
+		global.GVA_LOG.Error("重试处理失败!", zap.Error(err))
+		response.FailWithMessage(fmt.Sprintf("重试处理失败: %v", err), c)
+		return
+	}
 
-	response.OkWithMessage("重试处理已启动，后台异步执行", c)
+	// 获取处理后的文件信息，包含metadata
+	file, err := fileUploadAndDownloadService.FindFile(fileID)
+	if err != nil {
+		global.GVA_LOG.Error("获取处理后文件信息失败!", zap.Error(err))
+		response.FailWithMessage(fmt.Sprintf("获取文件信息失败: %v", err), c)
+		return
+	}
+
+	// 返回metadata内容作为处理结果
+	if file.Metadata.IsEmpty() {
+		global.GVA_LOG.Info("文件处理成功，但metadata为空", zap.Uint64("fileID", uint64(fileID)))
+		response.OkWithDetailed(example.FileMetadata{}, "重试处理成功，但metadata为空", c)
+	} else {
+		global.GVA_LOG.Info("重试处理成功", zap.Uint64("fileID", uint64(fileID)), zap.String("metadata", file.Metadata.String()))
+		response.OkWithDetailed(file.Metadata, "重试处理成功", c)
+	}
 }

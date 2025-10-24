@@ -65,6 +65,7 @@ func NewMultimodalAPIClient() *MultimodalAPIClient {
 	mac.analyzers["document"] = NewDocumentAnalyzer(mac)
 	mac.analyzers["audio"] = NewAudioAnalyzer(mac)
 	mac.analyzers["video"] = NewVideoAnalyzer(mac)
+	mac.analyzers["yunyi"] = NewYunyiAnalyzer(mac)
 
 	return mac
 }
@@ -118,6 +119,11 @@ func (c *MultimodalAPIClient) GetSupportedFileTypes() []string {
 	allTypes = append(allTypes, supportedTypes.Documents...)
 	allTypes = append(allTypes, supportedTypes.Videos...)
 	allTypes = append(allTypes, supportedTypes.Audios...)
+
+	// 添加yunyi分析器支持的文件类型
+	if yunyiAnalyzer, exists := c.analyzers["yunyi"]; exists {
+		allTypes = append(allTypes, yunyiAnalyzer.SupportedFileTypes()...)
+	}
 
 	return allTypes
 }
@@ -181,6 +187,14 @@ func (c *MultimodalAPIClient) isVideoFile(fileType string) bool {
 	return false
 }
 
+// isYunyiFile 判断是否为云一分析器支持的文件
+func (c *MultimodalAPIClient) isYunyiFile(fileType string) bool {
+	if yunyiAnalyzer, exists := c.analyzers["yunyi"]; exists {
+		return yunyiAnalyzer.IsSupported(fileType)
+	}
+	return false
+}
+
 func (c *MultimodalAPIClient) analyzeWithOpenAI(ctx context.Context, filePath, fileType string, modelConfig config.ModelConfig, messageParts []openai.ChatMessagePart) (*example.FileMetadata, error) {
 	req := openai.ChatCompletionRequest{
 		Model: modelConfig.Model,
@@ -239,8 +253,10 @@ func (c *MultimodalAPIClient) getCategoryByFileType(fileType string) string {
 		return "audio"
 	} else if c.isVideoFile(fileType) {
 		return "video"
+	} else if c.isYunyiFile(fileType) {
+		return "yunyi"
 	}
-	return "unknown"
+	return "yunyi"
 }
 
 // readFileContent 读取文件内容（支持本地文件和HTTP URL）

@@ -27,6 +27,8 @@ type ModelConfig struct {
 	Model       string  `mapstructure:"model" json:"model" yaml:"model"`                   // 使用的模型
 	MaxTokens   int     `mapstructure:"max-tokens" json:"max-tokens" yaml:"max-tokens"`    // 最大token数
 	Temperature float32 `mapstructure:"temperature" json:"temperature" yaml:"temperature"` // 温度参数
+	APIURL      string  `mapstructure:"api-url" json:"api-url" yaml:"api-url"`           // API端点（云一专用）
+	APIKey      string  `mapstructure:"api-key" json:"api-key" yaml:"api-key"`           // API密钥（云一专用）
 }
 
 // TypeModelConfig 按文件类型的模型配置
@@ -35,6 +37,7 @@ type TypeModelConfig struct {
 	Document *ModelConfig `mapstructure:"document" json:"document" yaml:"document"` // 文档文件模型配置
 	Video    *ModelConfig `mapstructure:"video" json:"video" yaml:"video"`          // 视频文件模型配置
 	Audio    *ModelConfig `mapstructure:"audio" json:"audio" yaml:"audio"`          // 音频文件模型配置
+	Yunyi    *ModelConfig `mapstructure:"yunyi" json:"yunyi" yaml:"yunyi"`          // 云一文件模型配置
 }
 
 // SupportedFileTypes 支持的文件类型配置
