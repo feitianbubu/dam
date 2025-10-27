@@ -58,14 +58,13 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	}
 
 	// 获取metadata参数并尝试解析为JSON
-	metadataStr := c.PostForm("metadata")
-	if metadataStr != "" {
-		var fileMetadata example.FileMetadata
-		if err := json.Unmarshal([]byte(metadataStr), &fileMetadata); err != nil {
+	var fileMetadata *example.FileMetadata
+	if metadataStr := c.PostForm("metadata"); metadataStr != "" {
+		fileMetadata = &example.FileMetadata{}
+		if err := json.Unmarshal([]byte(metadataStr), fileMetadata); err != nil {
 			response.FailWithMessage(fmt.Sprintf("metadata参数格式错误，必须为有效的JSON字符串:%v", err), c)
 			return
 		}
-		file.Metadata = fileMetadata
 	}
 
 	// 获取是否启用文件理解参数，默认为true
@@ -83,7 +82,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		zap.Bool("waitForMetadata", waitForMetadata))
 
 	// 用户信息作为独立参数传递
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, enableFileUnderstanding, waitForMetadata, &file.Metadata)
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, enableFileUnderstanding, waitForMetadata, fileMetadata)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)

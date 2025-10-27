@@ -197,11 +197,10 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //@param: header *multipart.FileHeader, noSave string
 //@return: file model.ExaFileUploadAndDownload, err error
 
-func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
-	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil, true, false, nil)
-}
+//func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
+//	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil, true, false, nil)
+//}
 
-// UploadFileWithMetadata 上传文件并支持业务元数据
 func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, enableFileUnderstanding bool, waitForMetadata bool, providedMetadata *example.FileMetadata) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
