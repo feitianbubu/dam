@@ -120,14 +120,14 @@
               prop="url"
               min-width="300"
             />
-            <el-table-column align="left" label="标签" prop="tag" width="100">
+            <el-table-column align="left" label="标签" prop="fileType" width="100">
               <template #default="scope">
                 <el-tag
                   :type="
-                    scope.row.tag?.toLowerCase() === 'jpg' ? 'info' : 'success'
+                    scope.row.fileType?.toLowerCase() === 'jpg' ? 'info' : 'success'
                   "
                   disable-transitions
-                  >{{ scope.row.tag }}
+                  >{{ scope.row.fileType }}
                 </el-tag>
               </template>
             </el-table-column>

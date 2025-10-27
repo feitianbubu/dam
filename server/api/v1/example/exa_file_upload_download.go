@@ -305,7 +305,7 @@ func (b *FileUploadAndDownloadApi) ImportURL(c *gin.Context) {
 // @accept    application/json
 // @Produce   application/json
 // @Param     id  query  int  true  "文件ID"
-// @Success   200  {object}  response.Response{data=example.FileMetadata,msg=string}  "重试文件处理，返回处理后的metadata"
+// @Success   200  {object}  response.Response{data=map[string]interface{},msg=string}  "重试文件处理，返回处理后的metadata"
 // @Router    /fileUploadAndDownload/retryProcessing [post]
 func (b *FileUploadAndDownloadApi) RetryFileProcessing(c *gin.Context) {
 	var fileID uint
