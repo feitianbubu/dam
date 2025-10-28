@@ -201,7 +201,7 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 //	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil, true, false, nil)
 //}
 
-func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, enableFileUnderstanding bool, waitForMetadata bool, providedMetadata *example.FileMetadata) (file example.ExaFileUploadAndDownload, err error) {
+func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, autoMetadata bool, waitForMetadata bool, providedMetadata *example.FileMetadata) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
 		var existingFile example.ExaFileUploadAndDownload
@@ -286,9 +286,9 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 		fileID := f.ID
 		global.GVA_LOG.Info("文件上传成功", zap.Uint64("fileID", uint64(fileID)))
 
-		// 只有在启用文件理解且未提供metadata的情况下才调用文件理解接口
-		if enableFileUnderstanding && (providedMetadata == nil) {
-			global.GVA_LOG.Info("启用文件理解，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
+		// 只有在启用自动生成元数据且未提供metadata的情况下才调用文件理解接口
+		if autoMetadata && (providedMetadata == nil) {
+			global.GVA_LOG.Info("启用自动生成元数据，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
 
 			if waitForMetadata {
 				// 同步等待处理完成
@@ -304,8 +304,8 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 				// 异步处理
 				go e.ProcessFileWithRetry(fileID, 3, "异步文件处理")
 			}
-		} else if !enableFileUnderstanding {
-			global.GVA_LOG.Info("文件理解已禁用，跳过文件理解", zap.Uint64("fileID", uint64(fileID)))
+		} else if !autoMetadata {
+			global.GVA_LOG.Info("自动生成元数据已禁用，跳过文件理解", zap.Uint64("fileID", uint64(fileID)))
 		}
 
 		return f, nil

@@ -29,7 +29,7 @@ type FileUploadAndDownloadApi struct{}
 // @Param     projectId  formData  string                                                       false  "项目ID"
 // @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
 // @Param     metadata  formData  string                                                       false  "文件元数据，JSON格式字符串"
-// @Param     enableFileUnderstanding  formData  bool                                           false  "是否启用文件理解，默认true"
+// @Param     autoMetadata  formData  bool                                           false  "是否自动生成元数据，默认false"
 // @Param     waitForMetadata  formData  bool                                                   false  "是否等待metadata处理完成再返回，默认false（异步处理）"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
@@ -67,8 +67,8 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		}
 	}
 
-	// 获取是否启用文件理解参数，默认为true
-	enableFileUnderstanding := c.DefaultPostForm("enableFileUnderstanding", "true") == "true"
+	// 获取是否自动生成元数据参数，默认为true
+	autoMetadata := c.DefaultPostForm("autoMetadata", "false") == "true"
 
 	// 获取是否等待metadata参数
 	waitForMetadata := c.DefaultPostForm("waitForMetadata", "false") == "true"
@@ -78,11 +78,11 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		zap.Uint("userID", userID),
 		zap.String("userName", userName),
 		zap.String("projectId", bizMetadata.ProjectID),
-		zap.Bool("enableFileUnderstanding", enableFileUnderstanding),
+		zap.Bool("autoMetadata", autoMetadata),
 		zap.Bool("waitForMetadata", waitForMetadata))
 
 	// 用户信息作为独立参数传递
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, enableFileUnderstanding, waitForMetadata, fileMetadata)
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, autoMetadata, waitForMetadata, fileMetadata)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
