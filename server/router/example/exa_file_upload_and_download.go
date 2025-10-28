@@ -20,5 +20,6 @@ func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gi
 		fileUploadAndDownloadRouter.POST("removeChunk", exaFileUploadAndDownloadApi.RemoveChunk)                           // 删除切片
 		fileUploadAndDownloadRouter.POST("importURL", exaFileUploadAndDownloadApi.ImportURL)                               // 导入URL
 		fileUploadAndDownloadRouter.POST("retryProcessing", exaFileUploadAndDownloadApi.RetryFileProcessing)               // 手动重试文件处理
-	}
+		fileUploadAndDownloadRouter.PUT("update", exaFileUploadAndDownloadApi.UpdateFile)                                   // 更新文件信息
+		}
 }

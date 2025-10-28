@@ -185,3 +185,18 @@ const (
 func (ExaFileUploadAndDownload) TableName() string {
 	return "exa_file_upload_and_downloads"
 }
+
+// FileUpdateOptions 文件更新选项
+type FileUpdateOptions struct {
+	// 基本字段
+	Name    *string // 文件名
+	ClassId *int    // 分类ID
+
+	// 元数据
+	Metadata    *FileMetadata // 文件元数据
+	BizMetadata *BizMetadata  // 业务元数据
+
+	// 处理选项
+	Reprocess    bool // 是否重新处理文件分析
+	UpdateVector bool // 是否更新向量化数据
+}

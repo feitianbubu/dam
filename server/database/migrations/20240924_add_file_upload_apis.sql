@@ -6,14 +6,14 @@
 -- 文件上传与下载 API接口添加
 -- 获取上传文件详情 (GET)
 -- MySQL/MariaDB版本 (推荐)
-INSERT INTO sys_apis (path, description, api_group, method)
-SELECT '/fileUploadAndDownload/getFileDetail', '获取上传文件详情', '文件上传与下载', 'GET'
-WHERE NOT EXISTS (
-    SELECT 1 FROM sys_apis
-    WHERE path = '/fileUploadAndDownload/getFileDetail'
-    AND method = 'GET'
-    AND deleted_at IS NULL
-);
+-- INSERT INTO sys_apis (path, description, api_group, method)
+-- SELECT '/fileUploadAndDownload/getFileDetail', '获取上传文件详情', '文件上传与下载', 'GET'
+-- WHERE NOT EXISTS (
+--     SELECT 1 FROM sys_apis
+--     WHERE path = '/fileUploadAndDownload/getFileDetail'
+--     AND method = 'GET'
+--     AND deleted_at IS NULL
+-- );
 
 -- 重试文件处理 (POST)
 -- MySQL/MariaDB版本 (推荐)
@@ -23,6 +23,17 @@ WHERE NOT EXISTS (
     SELECT 1 FROM sys_apis
     WHERE path = '/fileUploadAndDownload/retryProcessing'
     AND method = 'POST'
+    AND deleted_at IS NULL
+);
+
+-- 更新文件信息 (PUT)
+-- MySQL/MariaDB版本 (推荐)
+INSERT INTO sys_apis (path, description, api_group, method)
+SELECT '/fileUploadAndDownload/update', '更新文件信息', '文件上传与下载', 'PUT'
+WHERE NOT EXISTS (
+    SELECT 1 FROM sys_apis
+    WHERE path = '/fileUploadAndDownload/update'
+    AND method = 'PUT'
     AND deleted_at IS NULL
 );
 
