@@ -84,9 +84,9 @@ func (c *MultimodalAPIClient) AnalyzeFile(filePath string, fileType string) (*ex
 		return &metadata, nil
 	}
 
-	if !c.IsFileTypeSupported(fileType) {
-		return nil, fmt.Errorf("不支持的文件类型: %s", fileType)
-	}
+	//if !c.IsFileTypeSupported(fileType) {
+	//	return nil, fmt.Errorf("不支持的文件类型: %s", fileType)
+	//}
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()

@@ -2,7 +2,6 @@ package file_understanding
 
 import (
 	"context"
-	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -42,13 +41,13 @@ func (b *BaseAnalyzer) GetClient() *MultimodalAPIClient {
 
 // CheckFileTypeSupport 通用的文件类型支持检查方法
 func (b *BaseAnalyzer) CheckFileTypeSupport(fileType string, supportedTypes []string) bool {
-	fileType = strings.ToLower(fileType)
-	for _, t := range supportedTypes {
-		if strings.ToLower(t) == fileType {
-			return true
-		}
-	}
-	return false
+	//fileType = strings.ToLower(fileType)
+	//for _, t := range supportedTypes {
+	//	if strings.ToLower(t) == fileType {
+	//		return true
+	//	}
+	//}
+	return true
 }
 
 // CreateDisabledResponse 创建分析器未启用时的默认响应
