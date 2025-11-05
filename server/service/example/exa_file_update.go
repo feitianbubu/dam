@@ -3,11 +3,14 @@ package example
 import (
 	"encoding/json"
 	"errors"
+	"mime/multipart"
+	"path/filepath"
 	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/pkg/vectorization"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -22,6 +25,15 @@ func (e *FileUploadAndDownloadService) UpdateFile(id uint, opts *example.FileUpd
 	// 验证文件名变更
 	if err := e.validateFileNameChange(file.Name, opts.Name); err != nil {
 		return file, err
+	}
+
+	// 如果提供了新文件，先替换 MinIO 中的文件内容
+	if opts.NewFile != nil {
+		if err := e.replaceFileInStorage(&file, opts.NewFile); err != nil {
+			return file, err
+		}
+		// 文件替换成功后，自动触发重新处理
+		opts.Reprocess = true
 	}
 
 	// 构建更新字段
@@ -64,17 +76,9 @@ func (e *FileUploadAndDownloadService) findAndValidateFile(id uint) (example.Exa
 	return file, nil
 }
 
-// validateFileNameChange 验证文件名变更是否合法（不允许修改扩展名）
+// validateFileNameChange 验证文件名变更是否合法
 func (e *FileUploadAndDownloadService) validateFileNameChange(oldName string, newName *string) error {
-	if newName == nil || *newName == "" || *newName == oldName {
-		return nil
-	}
-
-	oldExt := getFileExtension(oldName)
-	newExt := getFileExtension(*newName)
-	if oldExt != newExt {
-		return errors.New("不允许修改文件扩展名")
-	}
+	// 允许任意修改文件名，包括扩展名
 	return nil
 }
 
@@ -90,7 +94,12 @@ func (e *FileUploadAndDownloadService) buildUpdateFields(opts *example.FileUpdat
 		updates["class_id"] = *opts.ClassId
 	}
 
-	// 更新业务元数据
+	// 记录修改人
+	if opts.UpdateUserID != nil {
+		updates["update_user_id"] = *opts.UpdateUserID
+	}
+
+	// 更新���务元数据
 	if opts.BizMetadata != nil {
 		bizMetadataJSON, err := json.Marshal(opts.BizMetadata)
 		if err != nil {
@@ -223,4 +232,55 @@ func (e *FileUploadAndDownloadService) UpdateFileVectorization(fileID uint) {
 	global.GVA_LOG.Info("文件向量化完成",
 		zap.Uint("fileID", fileID),
 		zap.String("documentID", document.ID))
+}
+
+// replaceFileInStorage 替换存储中的文件内容
+func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFileUploadAndDownload, newFile *multipart.FileHeader) error {
+	// 获取 OSS 客户端
+	oss := upload.NewOss()
+
+	// 验证是否为 MinIO 客户端
+	minioClient, ok := oss.(*upload.Minio)
+	if !ok {
+		return errors.New("当前仅支持 MinIO 存储方式的文件替换")
+	}
+
+	// 使用原有的 key 替换文件内容
+	newURL, err := minioClient.ReplaceFile(file.Key, newFile)
+	if err != nil {
+		global.GVA_LOG.Error("替换文件失败",
+			zap.Uint("fileID", file.ID),
+			zap.String("key", file.Key),
+			zap.Error(err))
+		return err
+	}
+
+	// 获取新文件类型
+	ext := filepath.Ext(newFile.Filename)
+	newFileType := strings.TrimPrefix(ext, ".")
+
+	// 更新数据库中的文件信息
+	updates := map[string]interface{}{
+		"url":       newURL,
+		"file_type": newFileType,
+	}
+
+	if err := global.GVA_DB.Model(file).Where("id = ?", file.ID).Updates(updates).Error; err != nil {
+		global.GVA_LOG.Error("更新文件信息失败",
+			zap.Uint("fileID", file.ID),
+			zap.Error(err))
+		return err
+	}
+
+	// 更新内存中的文件对象
+	file.Url = newURL
+	file.FileType = newFileType
+
+	global.GVA_LOG.Info("文件内容替换成功",
+		zap.Uint("fileID", file.ID),
+		zap.String("oldType", file.FileType),
+		zap.String("newType", newFileType),
+		zap.String("key", file.Key))
+
+	return nil
 }

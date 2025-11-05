@@ -144,3 +144,48 @@ func (m *Minio) DeleteFile(key string) error {
 	err := m.Client.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{})
 	return err
 }
+
+// ReplaceFile 替换已存在的文件内容（使用相同的 key）
+func (m *Minio) ReplaceFile(key string, file *multipart.FileHeader) (string, error) {
+	f, openError := file.Open()
+	if openError != nil {
+		global.GVA_LOG.Error("打开文件失败", zap.Any("err", openError.Error()))
+		return "", errors.New("打开文件失败, err:" + openError.Error())
+	}
+	defer f.Close()
+
+	filecontent := bytes.Buffer{}
+	_, err := io.Copy(&filecontent, f)
+	if err != nil {
+		global.GVA_LOG.Error("读取文件失败", zap.Any("err", err.Error()))
+		return "", errors.New("读取文件失败, err:" + err.Error())
+	}
+
+	// 根据文件扩展名检测 MIME 类型
+	ext := filepath.Ext(file.Filename)
+	contentType := mime.TypeByExtension(ext)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	// 设置超时10分钟
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	defer cancel()
+
+	// Upload the file with PutObject to replace existing file
+	putOptions := minio.PutObjectOptions{
+		ContentType: contentType,
+	}
+
+	info, err := m.Client.PutObject(ctx, global.GVA_CONFIG.Minio.BucketName, key, &filecontent, file.Size, putOptions)
+	if err != nil {
+		global.GVA_LOG.Error("替换文件到minio失败", zap.Any("err", err.Error()))
+		return "", errors.New("替换文件到minio失败, err:" + err.Error())
+	}
+
+	global.GVA_LOG.Info("文件替换到MinIO成功",
+		zap.String("objectName", info.Key),
+		zap.String("contentType", contentType))
+
+	return global.GVA_CONFIG.Minio.BucketUrl + "/" + info.Key, nil
+}

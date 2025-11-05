@@ -9,7 +9,7 @@ import (
 type ExaFileUpdateRequest struct {
 	ID uint `json:"id" form:"id" binding:"required" example:"1"`
 
-	//Name      *string `json:"name" form:"name" example:"1.jpg"`
+	Name      *string `json:"name" form:"name" example:"updated_file.jpg"`
 	ClassId   *int    `json:"classId" form:"classId" example:"1"`
 	ProjectID *string `json:"projectId" form:"projectId" example:"2"`
 

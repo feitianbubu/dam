@@ -3,6 +3,7 @@ package example
 import (
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -17,8 +18,9 @@ type ExaFileUploadAndDownload struct {
 	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
 
 	// 用户信息 - 一级字段，便于查询和索引
-	UserID   uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`    // 上传用户ID
-	Username string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"` // 上传用户名
+	UserID       uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`          // 上传用户ID
+	Username     string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"`       // 上传用户名
+	UpdateUserID uint   `json:"updateUserId" gorm:"column:update_user_id;comment:最后修改人ID"`              // 最后修改人ID
 
 	// 文件元数据 - 只存储纯文件理解结果
 	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据" swaggertype:"object"`
@@ -195,6 +197,12 @@ type FileUpdateOptions struct {
 	// 元数据
 	Metadata    *FileMetadata // 文件元数据
 	BizMetadata *BizMetadata  // 业务元数据
+
+	// 文件替换
+	NewFile *multipart.FileHeader // 新文件（可选，如果提供则替换原文件内容）
+
+	// 修改人
+	UpdateUserID *uint // 修改人ID
 
 	// 处理选项
 	Reprocess    bool // 是否重新处理文件分析
