@@ -22,6 +22,7 @@ type ExaFileSearchRequest struct {
 	Tags      []string `json:"tags" form:"tags"`           // 标签过滤，支持多个标签
 	UserId    uint     `json:"userId" form:"userId"`       // 用户ID过滤
 	Username  string   `json:"username" form:"username"`   // 用户名过滤（可选，用于显示）
+	Etag      string   `json:"etag" form:"etag"`           // Etag过滤
 	VectorSearchParams
 	request.PageInfo
 }

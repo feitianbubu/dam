@@ -17,7 +17,7 @@ type OSS interface {
 // OSSWithMetadata 支持元数据的对象存储接口
 type OSSWithMetadata interface {
 	UploadFile(file *multipart.FileHeader) (string, string, error)
-	UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, error)
+	UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, string, error)
 	DeleteFile(key string) error
 }
 

@@ -56,26 +56,27 @@ func GetMinio(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL 
 }
 
 func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string, uploadErr error) {
-	return m.UploadFileWithMetadata(file, nil)
+	fullPath, objectKey, _, err := m.UploadFileWithMetadata(file, nil)
+	return fullPath, objectKey, err
 }
 
-func (m *Minio) UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (filePathres, key string, uploadErr error) {
+func (m *Minio) UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (filePathres, key, etag string, uploadErr error) {
 	return m.UploadFileWithMetadataAndTags(file, metadata, nil)
 }
 
-func (m *Minio) UploadFileWithMetadataAndTags(file *multipart.FileHeader, metadata map[string]string, tags map[string]string) (filePathres, key string, uploadErr error) {
+func (m *Minio) UploadFileWithMetadataAndTags(file *multipart.FileHeader, metadata map[string]string, tags map[string]string) (filePathres, key, etag string, uploadErr error) {
 	f, openError := file.Open()
 	// mutipart.File to os.File
 	if openError != nil {
 		global.GVA_LOG.Error("function file.Open() Failed", zap.Any("err", openError.Error()))
-		return "", "", errors.New("function file.Open() Failed, err:" + openError.Error())
+		return "", "", "", errors.New("function file.Open() Failed, err:" + openError.Error())
 	}
 
 	filecontent := bytes.Buffer{}
 	_, err := io.Copy(&filecontent, f)
 	if err != nil {
 		global.GVA_LOG.Error("读取文件失败", zap.Any("err", err.Error()))
-		return "", "", errors.New("读取文件失败, err:" + err.Error())
+		return "", "", "", errors.New("读取文件失败, err:" + err.Error())
 	}
 	f.Close() // 创建文件 defer 关闭
 
@@ -125,15 +126,16 @@ func (m *Minio) UploadFileWithMetadataAndTags(file *multipart.FileHeader, metada
 	info, err := m.Client.PutObject(ctx, global.GVA_CONFIG.Minio.BucketName, filePathres, &filecontent, file.Size, putOptions)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件到minio失败", zap.Any("err", err.Error()))
-		return "", "", errors.New("上传文件到minio失败, err:" + err.Error())
+		return "", "", "", errors.New("上传文件到minio失败, err:" + err.Error())
 	}
 
 	global.GVA_LOG.Info("文件上传到MinIO成功",
 		zap.String("objectName", info.Key),
+		zap.String("etag", info.ETag),
 		zap.Any("metadata", metadata),
 		zap.Any("tags", tags))
 
-	return global.GVA_CONFIG.Minio.BucketUrl + "/" + info.Key, filePathres, nil
+	return global.GVA_CONFIG.Minio.BucketUrl + "/" + info.Key, filePathres, info.ETag, nil
 }
 
 func (m *Minio) DeleteFile(key string) error {

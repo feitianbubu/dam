@@ -188,7 +188,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
-// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 项目id, 标签过滤, 用户名过滤, 可选的向量搜索参数"
+// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 项目id, 标签过滤, 用户名过滤, etag过滤, 可选的向量搜索参数"
 // @Success   200   {object}  response.Response{data=response.PageResult,msg=string}  "分页文件列表,返回包括列表,总数,页码,每页数量"
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {

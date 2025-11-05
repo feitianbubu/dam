@@ -16,6 +16,7 @@ type ExaFileUploadAndDownload struct {
 	Url      string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
 	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
 	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
+	Etag     string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                             // 文件ETag
 
 	// 用户信息 - 一级字段，便于查询和索引
 	UserID       uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`          // 上传用户ID

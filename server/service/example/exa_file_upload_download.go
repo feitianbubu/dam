@@ -137,9 +137,38 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	if err != nil {
 		return
 	}
-	oss := upload.NewOss()
-	if err = oss.DeleteFile(fileFromDb.Key); err != nil {
-		return errors.New("文件删除失败")
+
+	// 检查是否还有其他记录引用同一个etag
+	var count int64
+	err = global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
+		Where("etag = ? AND id != ?", fileFromDb.Etag, fileFromDb.ID).
+		Count(&count).Error
+	if err != nil {
+		global.GVA_LOG.Error("检查文件引用计数失败",
+			zap.Uint("fileID", fileFromDb.ID),
+			zap.String("etag", fileFromDb.Etag),
+			zap.Error(err))
+		return errors.New("检查文件引用失败")
+	}
+
+	// 只有当这是最后一个引用该etag的记录时，才删除OSS文件
+	if count == 0 {
+		oss := upload.NewOss()
+		if err = oss.DeleteFile(fileFromDb.Key); err != nil {
+			global.GVA_LOG.Error("删除OSS文件失败",
+				zap.Uint("fileID", fileFromDb.ID),
+				zap.String("etag", fileFromDb.Etag),
+				zap.Error(err))
+			return errors.New("文件删除失败")
+		}
+		global.GVA_LOG.Info("OSS文件已删除（最后一个引用）",
+			zap.Uint("fileID", fileFromDb.ID),
+			zap.String("etag", fileFromDb.Etag))
+	} else {
+		global.GVA_LOG.Info("OSS文件保留（仍有其他引用）",
+			zap.Uint("fileID", fileFromDb.ID),
+			zap.String("etag", fileFromDb.Etag),
+			zap.Int64("remainingReferences", count))
 	}
 
 	if fileFromDb.VectorizationDocumentID != "" {
@@ -203,29 +232,29 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 
 func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, autoMetadata bool, waitForMetadata bool, providedMetadata *example.FileMetadata) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
-	if noSave == "0" {
-		var existingFile example.ExaFileUploadAndDownload
-		checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&existingFile).Error
-		if checkErr == nil {
-			// 文件名已存在，返回错误
-			global.GVA_LOG.Warn("文件名已存在，禁止上传",
-				zap.String("filename", header.Filename),
-				zap.Int("classId", classId),
-				zap.Uint("existingFileID", existingFile.ID))
-			return file, errors.New("文件名已存在")
-		}
-	}
+	//if noSave == "0" {
+	//	var existingFile example.ExaFileUploadAndDownload
+	//	checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&existingFile).Error
+	//	if checkErr == nil {
+	//		// 文件名已存在，返回错误
+	//		global.GVA_LOG.Warn("文件名已存在，禁止上传",
+	//			zap.String("filename", header.Filename),
+	//			zap.Int("classId", classId),
+	//			zap.Uint("existingFileID", existingFile.ID))
+	//		return file, errors.New("文件名已存在")
+	//	}
+	//}
 
 	oss := upload.NewOss()
 
 	minioMetadata := e.bizMetadataToMinioMetadata(bizMetadata)
 	minioTags := e.fileToMinioTags(userID, userName, bizMetadata)
 
-	var filePath, key string
+	var filePath, key, etag string
 	var uploadErr error
 
 	if minioClient, ok := oss.(*upload.Minio); ok && (minioMetadata != nil || minioTags != nil) {
-		filePath, key, uploadErr = minioClient.UploadFileWithMetadataAndTags(header, minioMetadata, minioTags)
+		filePath, key, etag, uploadErr = minioClient.UploadFileWithMetadataAndTags(header, minioMetadata, minioTags)
 		global.GVA_LOG.Info("使用MinIO混合方案上传（元数据+标签）",
 			zap.String("filename", header.Filename),
 			zap.Uint("userID", userID),
@@ -233,10 +262,10 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 			zap.Any("metadata", minioMetadata),
 			zap.Any("tags", minioTags))
 	} else if ossWithMetadata, ok := oss.(interface {
-		UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, error)
+		UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, string, error)
 	}); ok && minioMetadata != nil {
 		// 其他支持元数据的存储后端
-		filePath, key, uploadErr = ossWithMetadata.UploadFileWithMetadata(header, minioMetadata)
+		filePath, key, etag, uploadErr = ossWithMetadata.UploadFileWithMetadata(header, minioMetadata)
 		global.GVA_LOG.Info("使用带元数据的上传方法",
 			zap.String("filename", header.Filename),
 			zap.Any("metadata", minioMetadata))
@@ -258,6 +287,7 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 		ClassId:       classId,
 		FileType:      s[len(s)-1],
 		Key:           key,
+		Etag:          etag,                         // 保存ETag
 		UserID:        userID,                       // 设置用户ID
 		Username:      userName,                     // 设置用户名
 		ProcessStatus: example.ProcessStatusPending, // 设置初始状态为待处理
@@ -484,6 +514,11 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(inf
 
 	// 业务元数据过滤条件
 	e.applyBizMetadataFilters(db, info)
+
+	// Etag过滤
+	if info.Etag != "" {
+		db = db.Where("etag = ?", info.Etag)
+	}
 
 	// 向量文档ID过滤（如果提供）
 	if len(vectorDocumentIDs) > 0 {
