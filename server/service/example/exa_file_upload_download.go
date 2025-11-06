@@ -153,14 +153,12 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	//
 	//// 只有当这是最后一个引用该etag的记录时，才删除OSS文件
 	//if count == 0 {
-	oss := upload.NewOss()
-	if err = oss.DeleteFile(fileFromDb.Key); err != nil {
-		global.GVA_LOG.Error("删除OSS文件失败",
-			zap.Uint("fileID", fileFromDb.ID),
-			zap.String("etag", fileFromDb.Etag),
-			zap.Error(err))
+
+	// 使用统一的辅助函数删除OSS文件和向量化文档
+	if err = e.deleteOldFileAndVectorization(&fileFromDb); err != nil {
 		return errors.New("文件删除失败")
 	}
+
 	//global.GVA_LOG.Info("OSS文件已删除（最后一个引用）",
 	//	zap.Uint("fileID", fileFromDb.ID),
 	//	zap.String("etag", fileFromDb.Etag))
@@ -171,20 +169,48 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	//		zap.Int64("remainingReferences", count))
 	//}
 
-	if fileFromDb.VectorizationDocumentID != "" {
+	err = global.GVA_DB.Where("id = ?", file.ID).Unscoped().Delete(&file).Error
+	return err
+}
+
+// deleteOldFileAndVectorization 删除OSS文件和向量化文档（可复用的辅助函数）
+func (e *FileUploadAndDownloadService) deleteOldFileAndVectorization(file *example.ExaFileUploadAndDownload) error {
+	// 删除OSS上的文件
+	if file.Key != "" {
+		oss := upload.NewOss()
+		if delErr := oss.DeleteFile(file.Key); delErr != nil {
+			global.GVA_LOG.Error("删除OSS文件失败",
+				zap.Uint("fileID", file.ID),
+				zap.String("filename", file.Name),
+				zap.String("key", file.Key),
+				zap.Error(delErr))
+			return delErr
+		}
+		global.GVA_LOG.Info("OSS文件已删除",
+			zap.Uint("fileID", file.ID),
+			zap.String("filename", file.Name),
+			zap.String("key", file.Key))
+	}
+
+	// 删除向量化文档
+	if file.VectorizationDocumentID != "" {
 		vectorService := e.GetVectorizationService()
 		if vectorService != nil {
-			if delErr := vectorService.DeleteDocument(fileFromDb.VectorizationDocumentID); delErr != nil {
+			if delErr := vectorService.DeleteDocument(file.VectorizationDocumentID); delErr != nil {
 				global.GVA_LOG.Error("删除向量化文档失败",
-					zap.Uint("fileID", fileFromDb.ID),
-					zap.String("documentID", fileFromDb.VectorizationDocumentID),
+					zap.Uint("fileID", file.ID),
+					zap.String("documentID", file.VectorizationDocumentID),
 					zap.Error(delErr))
+				// 向量化文档删除失败不阻断流程，仅记录日志
+			} else {
+				global.GVA_LOG.Info("向量化文档已删除",
+					zap.Uint("fileID", file.ID),
+					zap.String("documentID", file.VectorizationDocumentID))
 			}
 		}
 	}
 
-	err = global.GVA_DB.Where("id = ?", file.ID).Unscoped().Delete(&file).Error
-	return err
+	return nil
 }
 
 // EditFileName 编辑文件名或者备注
@@ -246,35 +272,9 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 					zap.Int("classId", classId),
 					zap.Uint("existingFileID", existingFile.ID))
 
-				// 先删除OSS上的旧文件（保留数据库记录）
-				if existingFile.Key != "" {
-					oss := upload.NewOss()
-					if delErr := oss.DeleteFile(existingFile.Key); delErr != nil {
-						global.GVA_LOG.Error("删除OSS旧文件失败",
-							zap.String("filename", header.Filename),
-							zap.String("key", existingFile.Key),
-							zap.Error(delErr))
-						return file, fmt.Errorf("删除OSS旧文件失败: %w", delErr)
-					}
-					global.GVA_LOG.Info("OSS旧文件已删除",
-						zap.String("filename", header.Filename),
-						zap.String("oldKey", existingFile.Key))
-				}
-
-				// 如果旧文件有向量化文档ID，删除向量化文档
-				if existingFile.VectorizationDocumentID != "" {
-					vectorService := e.GetVectorizationService()
-					if vectorService != nil {
-						if delErr := vectorService.DeleteDocument(existingFile.VectorizationDocumentID); delErr != nil {
-							global.GVA_LOG.Error("删除向量化文档失败",
-								zap.Uint("fileID", existingFile.ID),
-								zap.String("documentID", existingFile.VectorizationDocumentID),
-								zap.Error(delErr))
-						} else {
-							global.GVA_LOG.Info("向量化文档已删除",
-								zap.String("documentID", existingFile.VectorizationDocumentID))
-						}
-					}
+				// 使用统一的辅助函数删除旧文件和向量化文档
+				if delErr := e.deleteOldFileAndVectorization(existingFile); delErr != nil {
+					return file, fmt.Errorf("删除旧文件失败: %w", delErr)
 				}
 			} else {
 				// 不允许覆盖，返回错误
