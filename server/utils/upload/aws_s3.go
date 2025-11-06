@@ -3,7 +3,9 @@ package upload
 import (
 	"errors"
 	"fmt"
+	"mime"
 	"mime/multipart"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,12 +41,19 @@ func (*AwsS3) UploadFile(file *multipart.FileHeader) (string, string, error) {
 	}
 	defer f.Close() // 创建文件 defer 关闭
 
-	_, err := uploader.Upload(&s3manager.UploadInput{
+	uploadInput := &s3manager.UploadInput{
 		Bucket: aws.String(global.GVA_CONFIG.AwsS3.Bucket),
 		Key:    aws.String(filename),
 		Body:   f,
-		ContentType: aws.String(file.Header.Get("Content-Type")),
-	})
+	}
+
+	// 根据文件扩展名检测 MIME 类型
+	ext := filepath.Ext(file.Filename)
+	contentType := mime.TypeByExtension(ext)
+	if contentType != "" {
+		uploadInput.ContentType = aws.String(contentType)
+	}
+	_, err := uploader.Upload(uploadInput)
 	if err != nil {
 		global.GVA_LOG.Error("function uploader.Upload() failed", zap.Any("err", err.Error()))
 		return "", "", err
