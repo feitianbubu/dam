@@ -173,41 +173,69 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	return err
 }
 
-// deleteOldFileAndVectorization 删除OSS文件和向量化文档（可复用的辅助函数）
-func (e *FileUploadAndDownloadService) deleteOldFileAndVectorization(file *example.ExaFileUploadAndDownload) error {
-	// 删除OSS上的文件
-	if file.Key != "" {
-		oss := upload.NewOss()
-		if delErr := oss.DeleteFile(file.Key); delErr != nil {
-			global.GVA_LOG.Error("删除OSS文件失败",
-				zap.Uint("fileID", file.ID),
-				zap.String("filename", file.Name),
-				zap.String("key", file.Key),
-				zap.Error(delErr))
-			return delErr
-		}
-		global.GVA_LOG.Info("OSS文件已删除",
-			zap.Uint("fileID", file.ID),
-			zap.String("filename", file.Name),
-			zap.String("key", file.Key))
+// deleteOSSFile 删除OSS文件
+func (e *FileUploadAndDownloadService) deleteOSSFile(file *example.ExaFileUploadAndDownload) error {
+	if file.Key == "" {
+		return nil
 	}
 
-	// 删除向量化文档
-	if file.VectorizationDocumentID != "" {
-		vectorService := e.GetVectorizationService()
-		if vectorService != nil {
-			if delErr := vectorService.DeleteDocument(file.VectorizationDocumentID); delErr != nil {
-				global.GVA_LOG.Error("删除向量化文档失败",
-					zap.Uint("fileID", file.ID),
-					zap.String("documentID", file.VectorizationDocumentID),
-					zap.Error(delErr))
-				// 向量化文档删除失败不阻断流程，仅记录日志
-			} else {
-				global.GVA_LOG.Info("向量化文档已删除",
-					zap.Uint("fileID", file.ID),
-					zap.String("documentID", file.VectorizationDocumentID))
-			}
-		}
+	oss := upload.NewOss()
+	if err := oss.DeleteFile(file.Key); err != nil {
+		global.GVA_LOG.Error("删除OSS文件失败",
+			zap.Uint("fileID", file.ID),
+			zap.String("filename", file.Name),
+			zap.String("key", file.Key),
+			zap.Error(err))
+		return err
+	}
+
+	global.GVA_LOG.Info("OSS文件已删除",
+		zap.Uint("fileID", file.ID),
+		zap.String("filename", file.Name),
+		zap.String("key", file.Key))
+	return nil
+}
+
+// deleteVectorizationDocument 删除向量化文档
+func (e *FileUploadAndDownloadService) deleteVectorizationDocument(file *example.ExaFileUploadAndDownload) error {
+	if file.VectorizationDocumentID == "" {
+		return nil
+	}
+
+	vectorService := e.GetVectorizationService()
+	if vectorService == nil {
+		global.GVA_LOG.Warn("向量化服务不可用，跳过删除向量化文档",
+			zap.Uint("fileID", file.ID),
+			zap.String("documentID", file.VectorizationDocumentID))
+		return nil
+	}
+
+	if err := vectorService.DeleteDocument(file.VectorizationDocumentID); err != nil {
+		global.GVA_LOG.Error("删除向量化文档失败",
+			zap.Uint("fileID", file.ID),
+			zap.String("documentID", file.VectorizationDocumentID),
+			zap.Error(err))
+		// 向量化文档删除失败不阻断流程，仅记录日志
+		return nil
+	}
+
+	global.GVA_LOG.Info("向量化文档已删除",
+		zap.Uint("fileID", file.ID),
+		zap.String("documentID", file.VectorizationDocumentID))
+	return nil
+}
+
+// deleteOldFileAndVectorization 删除OSS文件和向量化文档（组合函数）
+func (e *FileUploadAndDownloadService) deleteOldFileAndVectorization(file *example.ExaFileUploadAndDownload) error {
+	// 先删除OSS文件
+	if err := e.deleteOSSFile(file); err != nil {
+		return err
+	}
+
+	// 再删除向量化文档（不阻断流程）
+	err := e.deleteVectorizationDocument(file)
+	if err != nil {
+		global.GVA_LOG.Warn("deleteVectorizationDocument fail in deleteOldFileAndVectorization", zap.Error(err))
 	}
 
 	return nil
@@ -258,30 +286,40 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 
 func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, autoMetadata bool, waitForMetadata bool, providedMetadata *example.FileMetadata, overwrite bool) (file example.ExaFileUploadAndDownload, err error) {
 	// 上传前先检查文件名是否已存在
-	var existingFile *example.ExaFileUploadAndDownload
 	if noSave == "0" {
-		var tempFile example.ExaFileUploadAndDownload
-		checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&tempFile).Error
+		var existingFile example.ExaFileUploadAndDownload
+		checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&existingFile).Error
 		if checkErr == nil {
 			// 文件名已存在
 			if overwrite {
-				// 允许覆盖，保存现有文件信息，稍后更新而非删除
-				existingFile = &tempFile
-				global.GVA_LOG.Info("文件名已存在，将覆盖更新",
+				// 允许覆盖，直接调用UpdateFile逻辑（更简洁、统一）
+				global.GVA_LOG.Info("文件名已存在，使用UpdateFile逻辑覆盖",
 					zap.String("filename", header.Filename),
 					zap.Int("classId", classId),
 					zap.Uint("existingFileID", existingFile.ID))
 
-				// 使用统一的辅助函数删除旧文件和向量化文档
-				if delErr := e.deleteOldFileAndVectorization(existingFile); delErr != nil {
-					return file, fmt.Errorf("删除旧文件失败: %w", delErr)
+				// 构建更新选项
+				opts := &example.FileUpdateOptions{
+					NewFile:      header,       // 新文件内容
+					BizMetadata:  bizMetadata,  // 业务元数据
+					Reprocess:    autoMetadata, // 是否重新处理（与autoMetadata保持一致）
+					UpdateVector: false,        // 文件替换后会自动触发重新向量化
+					UpdateUserID: &userID,      // 更新人ID
 				}
+
+				// 如果提供了元数据，设置元数据
+				if providedMetadata != nil {
+					opts.Metadata = providedMetadata
+				}
+
+				// 调用统一的UpdateFile逻辑
+				return e.UpdateFile(existingFile.ID, opts)
 			} else {
 				// 不允许覆盖，返回错误
 				global.GVA_LOG.Warn("文件名已存在，如果需要覆盖请传参数overwrite=true",
 					zap.String("filename", header.Filename),
 					zap.Int("classId", classId),
-					zap.Uint("existingFileID", tempFile.ID))
+					zap.Uint("existingFileID", existingFile.ID))
 				return file, errors.New("文件名已存在")
 			}
 		}
@@ -324,41 +362,17 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 	}
 	s := strings.Split(header.Filename, ".")
 
-	// 构建文件记录
-	var f example.ExaFileUploadAndDownload
-
-	// 如果是覆盖模式，保留现有记录的ID和创建时间
-	if existingFile != nil {
-		f = *existingFile // 复制现有记录，保留ID、CreatedAt等字段
-		// 更新新文件信息
-		f.Url = filePath
-		f.Name = header.Filename
-		f.ClassId = classId
-		f.FileType = s[len(s)-1]
-		f.Key = key
-		f.Etag = etag
-		f.UserID = userID
-		f.Username = userName
-		f.ProcessStatus = example.ProcessStatusPending
-		f.VectorizationDocumentID = "" // 清空旧的向量化文档ID
-
-		global.GVA_LOG.Info("覆盖模式：保留文件ID和创建时间",
-			zap.Uint("fileID", f.ID),
-			zap.String("newKey", key),
-			zap.String("newEtag", etag))
-	} else {
-		// 创建新文件记录
-		f = example.ExaFileUploadAndDownload{
-			Url:           filePath,
-			Name:          header.Filename,
-			ClassId:       classId,
-			FileType:      s[len(s)-1],
-			Key:           key,
-			Etag:          etag,
-			UserID:        userID,
-			Username:      userName,
-			ProcessStatus: example.ProcessStatusPending,
-		}
+	// 构建文件记录（覆盖模式已在前面通过UpdateFile处理，这里只处理新建）
+	f := example.ExaFileUploadAndDownload{
+		Url:           filePath,
+		Name:          header.Filename,
+		ClassId:       classId,
+		FileType:      s[len(s)-1],
+		Key:           key,
+		Etag:          etag,
+		UserID:        userID,
+		Username:      userName,
+		ProcessStatus: example.ProcessStatusPending,
 	}
 
 	// 如果提供了业务元数据，则设置
@@ -376,23 +390,10 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 	}
 
 	if noSave == "0" {
-		// 根据是否覆盖模式选择不同的保存方式
-		if existingFile != nil {
-			// 覆盖模式：更新现有记录（GORM的Save会检测到ID存在，执行UPDATE）
-			err = global.GVA_DB.Save(&f).Error
-			if err != nil {
-				return f, err
-			}
-			global.GVA_LOG.Info("文件覆盖更新成功",
-				zap.Uint("fileID", f.ID),
-				zap.String("filename", f.Name),
-				zap.String("newKey", f.Key))
-		} else {
-			// 新建模式：创建新记录
-			err = e.Upload(&f)
-			if err != nil {
-				return f, err
-			}
+		// 创建新记录（覆盖模式已在前面通过UpdateFile处理）
+		err = e.Upload(&f)
+		if err != nil {
+			return f, err
 		}
 
 		fileID := f.ID

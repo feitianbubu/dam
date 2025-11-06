@@ -234,8 +234,16 @@ func (e *FileUploadAndDownloadService) UpdateFileVectorization(fileID uint) {
 		zap.String("documentID", document.ID))
 }
 
-// replaceFileInStorage 替换存储中的文件内容
 func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFileUploadAndDownload, newFile *multipart.FileHeader) error {
+	// 文件内容将被替换，先删除旧的向量化文档（新文档会在重新处理时生成）
+	err := e.deleteVectorizationDocument(file)
+	if err != nil {
+		global.GVA_LOG.Warn("deleteVectorizationDocument fail while replacing file",
+			zap.Uint("fileID", file.ID),
+			zap.String("vectorizationDocumentID", file.VectorizationDocumentID),
+			zap.Error(err))
+	}
+
 	// 获取 OSS 客户端
 	oss := upload.NewOss()
 
@@ -261,8 +269,9 @@ func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFil
 
 	// 更新数据库中的文件信息
 	updates := map[string]interface{}{
-		"url":       newURL,
-		"file_type": newFileType,
+		"url":                       newURL,
+		"file_type":                 newFileType,
+		"vectorization_document_id": "", // 清空向量化文档ID，重新处理时会生成新的
 	}
 
 	if err := global.GVA_DB.Model(file).Where("id = ?", file.ID).Updates(updates).Error; err != nil {
@@ -275,6 +284,7 @@ func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFil
 	// 更新内存中的文件对象
 	file.Url = newURL
 	file.FileType = newFileType
+	file.VectorizationDocumentID = "" // 清空向量化文档ID
 
 	global.GVA_LOG.Info("文件内容替换成功",
 		zap.Uint("fileID", file.ID),
