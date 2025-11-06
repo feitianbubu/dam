@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"strings"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -49,6 +50,7 @@ func (*AwsS3) UploadFile(file *multipart.FileHeader) (string, string, error) {
 		return "", "", err
 	}
 
+	filename = strings.TrimPrefix(filename, "/")
 	return global.GVA_CONFIG.AwsS3.BaseURL + "/" + filename, fileKey, nil
 }
 
