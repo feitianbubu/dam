@@ -93,6 +93,52 @@ func (*AwsS3) DeleteFile(key string) error {
 	return nil
 }
 
+//@author: [Assistant]
+//@object: *AwsS3
+//@function: ReplaceFile
+//@description: Replace file in Aws S3 using the same key
+//@param: key string, file *multipart.FileHeader
+//@return: string, error
+
+func (*AwsS3) ReplaceFile(key string, file *multipart.FileHeader) (string, error) {
+	session := newSession()
+	uploader := s3manager.NewUploader(session)
+
+	filename := global.GVA_CONFIG.AwsS3.PathPrefix + "/" + key
+	f, openError := file.Open()
+	if openError != nil {
+		global.GVA_LOG.Error("function file.Open() failed", zap.Any("err", openError.Error()))
+		return "", errors.New("function file.Open() failed, err:" + openError.Error())
+	}
+	defer f.Close()
+
+	uploadInput := &s3manager.UploadInput{
+		Bucket: aws.String(global.GVA_CONFIG.AwsS3.Bucket),
+		Key:    aws.String(filename),
+		Body:   f,
+	}
+
+	// 根据文件扩展名检测 MIME 类型
+	ext := filepath.Ext(file.Filename)
+	contentType := mime.TypeByExtension(ext)
+	if contentType != "" {
+		uploadInput.ContentType = aws.String(contentType)
+	}
+
+	_, err := uploader.Upload(uploadInput)
+	if err != nil {
+		global.GVA_LOG.Error("function uploader.Upload() failed", zap.Any("err", err.Error()))
+		return "", err
+	}
+
+	global.GVA_LOG.Info("文件替换到S3成功",
+		zap.String("objectName", filename),
+		zap.String("contentType", contentType))
+
+	filename = strings.TrimPrefix(filename, "/")
+	return global.GVA_CONFIG.AwsS3.BaseURL + "/" + filename, nil
+}
+
 // newSession Create S3 session
 func newSession() *session.Session {
 	sess, _ := session.NewSession(&aws.Config{

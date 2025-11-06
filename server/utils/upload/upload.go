@@ -21,6 +21,12 @@ type OSSWithMetadata interface {
 	DeleteFile(key string) error
 }
 
+// OSSWithReplaceFile 支持文件替换的对象存储接口
+type OSSWithReplaceFile interface {
+	OSS
+	ReplaceFile(key string, file *multipart.FileHeader) (string, error)
+}
+
 // NewOss OSS的实例化方法
 // Author [SliverHorn](https://github.com/SliverHorn)
 // Author [ccfish86](https://github.com/ccfish86)

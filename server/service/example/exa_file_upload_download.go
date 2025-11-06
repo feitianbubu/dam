@@ -315,12 +315,12 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 				// 调用统一的UpdateFile逻辑
 				return e.UpdateFile(existingFile.ID, opts)
 			} else {
-				// 不允许覆盖，返回错误
-				global.GVA_LOG.Warn("文件名已存在，如果需要覆盖请传参数overwrite=true",
+				err = errors.New("文件名已存在，如果需要覆盖请传参数overwrite=true")
+				global.GVA_LOG.Warn(err.Error(),
 					zap.String("filename", header.Filename),
 					zap.Int("classId", classId),
 					zap.Uint("existingFileID", existingFile.ID))
-				return file, errors.New("文件名已存在")
+				return file, err
 			}
 		}
 	}

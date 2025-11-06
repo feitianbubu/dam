@@ -247,14 +247,14 @@ func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFil
 	// 获取 OSS 客户端
 	oss := upload.NewOss()
 
-	// 验证是否为 MinIO 客户端
-	minioClient, ok := oss.(*upload.Minio)
+	// 验证是否支持文件替换接口
+	replaceableClient, ok := oss.(upload.OSSWithReplaceFile)
 	if !ok {
-		return errors.New("当前仅支持 MinIO 存储方式的文件替换")
+		return errors.New("当前存储方式不支持文件替换")
 	}
 
 	// 使用原有的 key 替换文件内容
-	newURL, err := minioClient.ReplaceFile(file.Key, newFile)
+	newURL, err := replaceableClient.ReplaceFile(file.Key, newFile)
 	if err != nil {
 		global.GVA_LOG.Error("替换文件失败",
 			zap.Uint("fileID", file.ID),
