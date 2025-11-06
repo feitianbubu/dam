@@ -31,6 +31,7 @@ type FileUploadAndDownloadApi struct{}
 // @Param     metadata  formData  string                                                       false  "文件元数据，JSON格式字符串"
 // @Param     autoMetadata  formData  bool                                           false  "是否自动生成元数据，默认false"
 // @Param     waitForMetadata  formData  bool                                                   false  "是否等待metadata处理完成再返回，默认false（异步处理）"
+// @Param     overwrite  formData  bool                                                   false  "是否覆盖同名文件，默认false（不覆盖则返回错误）"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
 func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
@@ -73,16 +74,20 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	// 获取是否等待metadata参数
 	waitForMetadata := c.DefaultPostForm("waitForMetadata", "false") == "true"
 
+	// 获取是否覆盖同名文件参数，默认为false
+	overwrite := c.DefaultPostForm("overwrite", "false") == "true"
+
 	// 记录上传用户信息
 	global.GVA_LOG.Info("文件上传用户信息",
 		zap.Uint("userID", userID),
 		zap.String("userName", userName),
 		zap.String("projectId", bizMetadata.ProjectID),
 		zap.Bool("autoMetadata", autoMetadata),
-		zap.Bool("waitForMetadata", waitForMetadata))
+		zap.Bool("waitForMetadata", waitForMetadata),
+		zap.Bool("overwrite", overwrite))
 
 	// 用户信息作为独立参数传递
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, autoMetadata, waitForMetadata, fileMetadata)
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, autoMetadata, waitForMetadata, fileMetadata, overwrite)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
