@@ -2,14 +2,13 @@ package upload
 
 import (
 	"errors"
-	"fmt"
 	"mime"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -32,7 +31,9 @@ func (*AwsS3) UploadFile(file *multipart.FileHeader) (string, string, error) {
 	session := newSession()
 	uploader := s3manager.NewUploader(session)
 
-	fileKey := fmt.Sprintf("%d%s", time.Now().Unix(), file.Filename)
+	//fileKey := fmt.Sprintf("%d%s", time.Now().Unix(), file.Filename)
+	ext := filepath.Ext(file.Filename)
+	fileKey := utils.MD5V([]byte(strings.TrimSuffix(file.Filename, ext))) + ext
 	filename := global.GVA_CONFIG.AwsS3.PathPrefix + "/" + fileKey
 	f, openError := file.Open()
 	if openError != nil {
@@ -48,7 +49,7 @@ func (*AwsS3) UploadFile(file *multipart.FileHeader) (string, string, error) {
 	}
 
 	// 根据文件扩展名检测 MIME 类型
-	ext := filepath.Ext(file.Filename)
+	//ext := filepath.Ext(file.Filename)
 	contentType := mime.TypeByExtension(ext)
 	if contentType != "" {
 		uploadInput.ContentType = aws.String(contentType)

@@ -139,37 +139,37 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	}
 
 	// 检查是否还有其他记录引用同一个etag
-	var count int64
-	err = global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
-		Where("etag = ? AND id != ?", fileFromDb.Etag, fileFromDb.ID).
-		Count(&count).Error
-	if err != nil {
-		global.GVA_LOG.Error("检查文件引用计数失败",
+	//var count int64
+	//err = global.GVA_DB.Model(&example.ExaFileUploadAndDownload{}).
+	//	Where("etag = ? AND id != ?", fileFromDb.Etag, fileFromDb.ID).
+	//	Count(&count).Error
+	//if err != nil {
+	//	global.GVA_LOG.Error("检查文件引用计数失败",
+	//		zap.Uint("fileID", fileFromDb.ID),
+	//		zap.String("etag", fileFromDb.Etag),
+	//		zap.Error(err))
+	//	return errors.New("检查文件引用失败")
+	//}
+	//
+	//// 只有当这是最后一个引用该etag的记录时，才删除OSS文件
+	//if count == 0 {
+	oss := upload.NewOss()
+	if err = oss.DeleteFile(fileFromDb.Key); err != nil {
+		global.GVA_LOG.Error("删除OSS文件失败",
 			zap.Uint("fileID", fileFromDb.ID),
 			zap.String("etag", fileFromDb.Etag),
 			zap.Error(err))
-		return errors.New("检查文件引用失败")
+		return errors.New("文件删除失败")
 	}
-
-	// 只有当这是最后一个引用该etag的记录时，才删除OSS文件
-	if count == 0 {
-		oss := upload.NewOss()
-		if err = oss.DeleteFile(fileFromDb.Key); err != nil {
-			global.GVA_LOG.Error("删除OSS文件失败",
-				zap.Uint("fileID", fileFromDb.ID),
-				zap.String("etag", fileFromDb.Etag),
-				zap.Error(err))
-			return errors.New("文件删除失败")
-		}
-		global.GVA_LOG.Info("OSS文件已删除（最后一个引用）",
-			zap.Uint("fileID", fileFromDb.ID),
-			zap.String("etag", fileFromDb.Etag))
-	} else {
-		global.GVA_LOG.Info("OSS文件保留（仍有其他引用）",
-			zap.Uint("fileID", fileFromDb.ID),
-			zap.String("etag", fileFromDb.Etag),
-			zap.Int64("remainingReferences", count))
-	}
+	//global.GVA_LOG.Info("OSS文件已删除（最后一个引用）",
+	//	zap.Uint("fileID", fileFromDb.ID),
+	//	zap.String("etag", fileFromDb.Etag))
+	//} else {
+	//	global.GVA_LOG.Info("OSS文件保留（仍有其他引用）",
+	//		zap.Uint("fileID", fileFromDb.ID),
+	//		zap.String("etag", fileFromDb.Etag),
+	//		zap.Int64("remainingReferences", count))
+	//}
 
 	if fileFromDb.VectorizationDocumentID != "" {
 		vectorService := e.GetVectorizationService()
