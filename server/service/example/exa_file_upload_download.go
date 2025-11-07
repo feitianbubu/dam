@@ -131,11 +131,11 @@ func (e *FileUploadAndDownloadService) FindFile(id uint) (example.ExaFileUploadA
 //@param: file model.ExaFileUploadAndDownload
 //@return: err error
 
-func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndDownload) (err error) {
-	var fileFromDb example.ExaFileUploadAndDownload
-	fileFromDb, err = e.FindFile(file.ID)
+func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndDownload, currentUserID uint, currentUserAuthorityID uint) (err error) {
+	// 检查权限
+	fileFromDb, err := e.checkFileOwnership(file.ID, currentUserID, currentUserAuthorityID)
 	if err != nil {
-		return
+		return err
 	}
 
 	// 检查是否还有其他记录引用同一个etag
@@ -155,7 +155,7 @@ func (e *FileUploadAndDownloadService) DeleteFile(file example.ExaFileUploadAndD
 	//if count == 0 {
 
 	// 使用统一的辅助函数删除OSS文件和向量化文档
-	if err = e.deleteOldFileAndVectorization(&fileFromDb); err != nil {
+	if err = e.deleteOldFileAndVectorization(fileFromDb); err != nil {
 		return errors.New("文件删除失败")
 	}
 
@@ -241,8 +241,46 @@ func (e *FileUploadAndDownloadService) deleteOldFileAndVectorization(file *examp
 	return nil
 }
 
+// isFileAdmin 判断用户是否是文件管理员
+// 管理员角色ID为888（admin用户的默认角色）
+func (e *FileUploadAndDownloadService) isFileAdmin(authorityID uint) bool {
+	// 可以在这里扩展更多的管理员角色ID
+	// 例如：return authorityID == 888 || authorityID == 999
+	return authorityID == 888
+}
+
+// checkFileOwnership 检查用户是否有权限操作文件
+// 只有文件所有者或管理员才能操作文件
+func (e *FileUploadAndDownloadService) checkFileOwnership(fileID uint, currentUserID uint, currentUserAuthorityID uint) (*example.ExaFileUploadAndDownload, error) {
+	// 查询文件
+	var file example.ExaFileUploadAndDownload
+	err := global.GVA_DB.Where("id = ?", fileID).First(&file).Error
+	if err != nil {
+		return nil, errors.New("文件不存在")
+	}
+
+	// 管理员可以操作所有文件
+	if e.isFileAdmin(currentUserAuthorityID) {
+		return &file, nil
+	}
+
+	// 普通用户只能操作自己上传的文件（检查UserID，而不是UpdateUserID）
+	if file.UserID != currentUserID {
+		return nil, errors.New("无权操作该文件，只能操作自己上传的文件")
+	}
+
+	return &file, nil
+}
+
 // EditFileName 编辑文件名或者备注
-func (e *FileUploadAndDownloadService) EditFileName(file example.ExaFileUploadAndDownload) (err error) {
+func (e *FileUploadAndDownloadService) EditFileName(file example.ExaFileUploadAndDownload, currentUserID uint, currentUserAuthorityID uint) (err error) {
+	// 检查权限
+	_, err = e.checkFileOwnership(file.ID, currentUserID, currentUserAuthorityID)
+	if err != nil {
+		return err
+	}
+
+	// 执行更新
 	var fileFromDb example.ExaFileUploadAndDownload
 	return global.GVA_DB.Where("id = ?", file.ID).First(&fileFromDb).Update("name", file.Name).Error
 }
@@ -275,16 +313,29 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)
-//@function: UploadFile
+//@function: UploadFileWithMetadata
 //@description: 根据配置文件判断是文件上传到本地或者七牛云
-//@param: header *multipart.FileHeader, noSave string
+//@param: opts *example.FileUploadOptions
 //@return: file model.ExaFileUploadAndDownload, err error
 
-//func (e *FileUploadAndDownloadService) UploadFile(header *multipart.FileHeader, noSave string, classId int) (file example.ExaFileUploadAndDownload, err error) {
-//	return e.UploadFileWithMetadata(header, noSave, classId, 0, "", nil, true, false, nil)
-//}
+func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.FileUploadOptions) (file example.ExaFileUploadAndDownload, err error) {
+	// 参数验证
+	if opts == nil || opts.FileHeader == nil {
+		return file, errors.New("上传参数不能为空")
+	}
 
-func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.FileHeader, noSave string, classId int, userID uint, userName string, bizMetadata *example.BizMetadata, autoMetadata bool, waitForMetadata bool, providedMetadata *example.FileMetadata, overwrite bool) (file example.ExaFileUploadAndDownload, err error) {
+	header := opts.FileHeader
+	noSave := opts.NoSave
+	classId := opts.ClassId
+	userID := opts.UserID
+	userName := opts.UserName
+	authorityID := opts.AuthorityID
+	bizMetadata := opts.BizMetadata
+	autoMetadata := opts.AutoMetadata
+	waitForMetadata := opts.WaitForMetadata
+	providedMetadata := opts.ProvidedMetadata
+	overwrite := opts.Overwrite
+
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
 		var existingFile example.ExaFileUploadAndDownload
@@ -299,7 +350,7 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 					zap.Uint("existingFileID", existingFile.ID))
 
 				// 构建更新选项
-				opts := &example.FileUpdateOptions{
+				updateOpts := &example.FileUpdateOptions{
 					NewFile:      header,       // 新文件内容
 					BizMetadata:  bizMetadata,  // 业务元数据
 					Reprocess:    autoMetadata, // 是否重新处理（与autoMetadata保持一致）
@@ -309,11 +360,11 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(header *multipart.
 
 				// 如果提供了元数据，设置元数据
 				if providedMetadata != nil {
-					opts.Metadata = providedMetadata
+					updateOpts.Metadata = providedMetadata
 				}
 
-				// 调用统一的UpdateFile逻辑
-				return e.UpdateFile(existingFile.ID, opts)
+				// 调用统一的UpdateFile逻辑，传递真实的authorityID
+				return e.UpdateFile(existingFile.ID, updateOpts, userID, authorityID)
 			} else {
 				err = errors.New("文件名已存在，如果需要覆盖请传参数overwrite=true")
 				global.GVA_LOG.Warn(err.Error(),

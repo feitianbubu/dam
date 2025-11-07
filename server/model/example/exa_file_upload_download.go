@@ -189,6 +189,30 @@ func (ExaFileUploadAndDownload) TableName() string {
 	return "exa_file_upload_and_downloads"
 }
 
+// FileUploadOptions 文件上传选项
+type FileUploadOptions struct {
+	// 文件信息（必需）
+	FileHeader *multipart.FileHeader // 文件头
+
+	// 基本信息
+	NoSave  string // 是否保存 "0"表示保存，其他值表示不保存
+	ClassId int    // 分类ID
+
+	// 用户信息（必需）
+	UserID      uint   // 上传用户ID
+	UserName    string // 上传用户名
+	AuthorityID uint   // 用户权限ID
+
+	// 元数据
+	ProvidedMetadata *FileMetadata // 用户提供的文件元数据（可选）
+	BizMetadata      *BizMetadata  // 业务元数据（可选）
+
+	// 处理选项
+	AutoMetadata    bool // 是否自动生成元数据
+	WaitForMetadata bool // 是否等待metadata处理完成
+	Overwrite       bool // 是否覆盖同名文件
+}
+
 // FileUpdateOptions 文件更新选项
 type FileUpdateOptions struct {
 	// 基本字段

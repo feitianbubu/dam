@@ -15,11 +15,16 @@ import (
 	"gorm.io/gorm"
 )
 
-func (e *FileUploadAndDownloadService) UpdateFile(id uint, opts *example.FileUpdateOptions) (example.ExaFileUploadAndDownload, error) {
+func (e *FileUploadAndDownloadService) UpdateFile(id uint, opts *example.FileUpdateOptions, currentUserID uint, currentUserAuthorityID uint) (example.ExaFileUploadAndDownload, error) {
 	// 查找并验证文件
 	file, err := e.findAndValidateFile(id)
 	if err != nil {
 		return file, err
+	}
+
+	// 检查权限 - 只有文件所有者或管理员才能更新文件
+	if !e.isFileAdmin(currentUserAuthorityID) && file.UserID != currentUserID {
+		return file, errors.New("无权操作该文件，只能操作自己上传的文件")
 	}
 
 	// 验证文件名变更

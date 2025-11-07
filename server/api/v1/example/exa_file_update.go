@@ -49,12 +49,13 @@ func (b *FileUploadAndDownloadApi) UpdateFile(c *gin.Context) {
 		opts.NewFile = fileHeader
 	}
 
-	// 获取当前用户ID并记录修改人
+	// 获取当前用户信息
 	userID := utils.GetUserID(c)
+	authorityID := utils.GetUserAuthorityId(c)
 	opts.UpdateUserID = &userID
 
 	// 调用服务层更新文件
-	file, err := fileUploadAndDownloadService.UpdateFile(req.ID, opts)
+	file, err := fileUploadAndDownloadService.UpdateFile(req.ID, opts, userID, authorityID)
 	if err != nil {
 		global.GVA_LOG.Error("更新文件失败!", zap.Error(err))
 		response.FailWithMessage("更新文件失败: "+err.Error(), c)

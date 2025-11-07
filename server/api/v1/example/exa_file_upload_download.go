@@ -51,6 +51,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	// 获取当前用户信息
 	userID := utils.GetUserID(c)
 	userName := utils.GetUserName(c)
+	authorityID := utils.GetUserAuthorityId(c)
 
 	// 构建业务元数据
 	bizMetadata := example.BizMetadata{
@@ -81,13 +82,29 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	global.GVA_LOG.Info("文件上传用户信息",
 		zap.Uint("userID", userID),
 		zap.String("userName", userName),
+		zap.Uint("authorityID", authorityID),
 		zap.String("projectId", bizMetadata.ProjectID),
 		zap.Bool("autoMetadata", autoMetadata),
 		zap.Bool("waitForMetadata", waitForMetadata),
 		zap.Bool("overwrite", overwrite))
 
-	// 用户信息作为独立参数传递
-	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(header, noSave, classId, userID, userName, &bizMetadata, autoMetadata, waitForMetadata, fileMetadata, overwrite)
+	// 构建上传选项
+	uploadOpts := &example.FileUploadOptions{
+		FileHeader:       header,
+		NoSave:           noSave,
+		ClassId:          classId,
+		UserID:           userID,
+		UserName:         userName,
+		AuthorityID:      authorityID,
+		BizMetadata:      &bizMetadata,
+		ProvidedMetadata: fileMetadata,
+		AutoMetadata:     autoMetadata,
+		WaitForMetadata:  waitForMetadata,
+		Overwrite:        overwrite,
+	}
+
+	// 调用服务层上传文件
+	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(uploadOpts)
 	if err != nil {
 		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
@@ -131,10 +148,15 @@ func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = fileUploadAndDownloadService.EditFileName(file)
+
+	// 获取当前用户信息
+	userID := utils.GetUserID(c)
+	authorityID := utils.GetUserAuthorityId(c)
+
+	err = fileUploadAndDownloadService.EditFileName(file, userID, authorityID)
 	if err != nil {
 		global.GVA_LOG.Error("编辑失败!", zap.Error(err))
-		response.FailWithMessage("编辑失败", c)
+		response.FailWithMessage("编辑失败: "+err.Error(), c)
 		return
 	}
 	response.OkWithMessage("编辑成功", c)
@@ -155,9 +177,14 @@ func (b *FileUploadAndDownloadApi) DeleteFile(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	if err := fileUploadAndDownloadService.DeleteFile(file); err != nil {
+
+	// 获取当前用户信息
+	userID := utils.GetUserID(c)
+	authorityID := utils.GetUserAuthorityId(c)
+
+	if err := fileUploadAndDownloadService.DeleteFile(file, userID, authorityID); err != nil {
 		global.GVA_LOG.Error("删除失败!", zap.Error(err))
-		response.FailWithMessage("删除失败", c)
+		response.FailWithMessage("删除失败: "+err.Error(), c)
 		return
 	}
 	response.OkWithMessage("删除成功", c)
