@@ -1,9 +1,10 @@
 package initialize
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/docs"
 	"net/http"
 	"os"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/docs"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/docs/oas"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -99,7 +100,7 @@ func Routers() *gin.Engine {
 		systemRouter.InitApiRouter(PrivateGroup, PublicGroup)               // 注册功能api路由
 		systemRouter.InitJwtRouter(PrivateGroup)                            // jwt相关路由
 		systemRouter.InitUserRouter(PrivateGroup)                           // 注册用户路由
-		systemRouter.InitOidcRouter(PublicGroup)                           // 注册OIDC路由
+		systemRouter.InitOidcRouter(PublicGroup)                            // 注册OIDC路由
 		systemRouter.InitMenuRouter(PrivateGroup)                           // 注册menu路由
 		systemRouter.InitSystemRouter(PrivateGroup)                         // system相关路由
 		systemRouter.InitSysVersionRouter(PrivateGroup)                     // 发版相关路由
@@ -117,6 +118,7 @@ func Routers() *gin.Engine {
 		exampleRouter.InitCustomerRouter(PrivateGroup)                      // 客户路由
 		exampleRouter.InitFileUploadAndDownloadRouter(PrivateGroup)         // 文件上传下载功能路由
 		exampleRouter.InitAttachmentCategoryRouterRouter(PrivateGroup)      // 文件上传下载分类
+		//exampleRouter.InitProjectRouter(PrivateGroup)                       // 项目管理路由
 
 	}
 

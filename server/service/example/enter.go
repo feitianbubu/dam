@@ -5,6 +5,7 @@ type ServiceGroup struct {
 	FileUploadAndDownloadService
 	BreakpointContinueService
 	AttachmentCategoryService
+	ProjectService
 }
 
 var ServiceGroupApp = new(ServiceGroup)

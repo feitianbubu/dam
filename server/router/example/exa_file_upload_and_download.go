@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/flipped-aurora/gin-vue-admin/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -8,6 +9,7 @@ type FileUploadAndDownloadRouter struct{}
 
 func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gin.RouterGroup) {
 	fileUploadAndDownloadRouter := Router.Group("fileUploadAndDownload")
+	fileUploadAndDownloadRouter.Use(middleware.OperationRecord(), middleware.FileProjectAccessHandler())
 	{
 		fileUploadAndDownloadRouter.POST("upload", exaFileUploadAndDownloadApi.UploadFile)                                 // 上传文件
 		fileUploadAndDownloadRouter.GET("getFileDetail", exaFileUploadAndDownloadApi.GetFileDetail)                        // 获取文件详情
@@ -20,6 +22,6 @@ func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gi
 		fileUploadAndDownloadRouter.POST("removeChunk", exaFileUploadAndDownloadApi.RemoveChunk)                           // 删除切片
 		fileUploadAndDownloadRouter.POST("importURL", exaFileUploadAndDownloadApi.ImportURL)                               // 导入URL
 		fileUploadAndDownloadRouter.POST("retryProcessing", exaFileUploadAndDownloadApi.RetryFileProcessing)               // 手动重试文件处理
-		fileUploadAndDownloadRouter.PUT("update", exaFileUploadAndDownloadApi.UpdateFile)                                   // 更新文件信息
-		}
+		fileUploadAndDownloadRouter.PUT("update", exaFileUploadAndDownloadApi.UpdateFile)                                  // 更新文件信息
+	}
 }
