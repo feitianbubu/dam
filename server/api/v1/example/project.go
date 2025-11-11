@@ -14,7 +14,7 @@ import (
 type ProjectApi struct{}
 
 // CreateProject
-// @Tags      Dam
+// @Tags      Project
 // @Summary   创建项目
 // @Security  ApiKeyAuth
 // @accept    application/json
@@ -41,7 +41,7 @@ func (p *ProjectApi) CreateProject(c *gin.Context) {
 }
 
 // UpdateProject
-// @Tags      Dam
+// @Tags      Project
 // @Summary   更新项目
 // @Security  ApiKeyAuth
 // @accept    application/json
@@ -68,7 +68,7 @@ func (p *ProjectApi) UpdateProject(c *gin.Context) {
 }
 
 // DeleteProject
-// @Tags      Dam
+// @Tags      Project
 // @Summary   删除项目
 // @Security  ApiKeyAuth
 // @Produce   application/json
@@ -94,7 +94,7 @@ func (p *ProjectApi) DeleteProject(c *gin.Context) {
 }
 
 // GetProjectInfo
-// @Tags      Dam
+// @Tags      Project
 // @Summary   获取项目详情
 // @Security  ApiKeyAuth
 // @Produce   application/json
@@ -119,7 +119,7 @@ func (p *ProjectApi) GetProjectInfo(c *gin.Context) {
 }
 
 // GetProjectList
-// @Tags      Dam
+// @Tags      Project
 // @Summary   获取项目列表
 // @Security  ApiKeyAuth
 // @accept    application/json
@@ -151,7 +151,7 @@ func (p *ProjectApi) GetProjectList(c *gin.Context) {
 }
 
 // SetProjectPermission
-// @Tags      Dam
+// @Tags      Project
 // @Summary   设置项目权限
 // @Security  ApiKeyAuth
 // @accept    application/json
@@ -177,7 +177,7 @@ func (p *ProjectApi) SetProjectPermission(c *gin.Context) {
 }
 
 // RemoveProjectPermission
-// @Tags      Dam
+// @Tags      Project
 // @Summary   移除项目权限
 // @Security  ApiKeyAuth
 // @accept    application/json
@@ -203,7 +203,7 @@ func (p *ProjectApi) RemoveProjectPermission(c *gin.Context) {
 }
 
 // GetProjectPermissions
-// @Tags      Dam
+// @Tags      Project
 // @Summary   获取项目权限列表
 // @Security  ApiKeyAuth
 // @Produce   application/json
