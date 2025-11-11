@@ -13,6 +13,7 @@ import (
 	exampleRes "github.com/flipped-aurora/gin-vue-admin/server/model/example/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"go.uber.org/zap"
 )
 
@@ -143,7 +144,7 @@ func parseTagsFromForm(tagsStr string) []string {
 // EditFileName 编辑文件名或者备注
 func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 	var file example.ExaFileUploadAndDownload
-	err := c.ShouldBindJSON(&file)
+	err := c.ShouldBindBodyWith(&file, binding.JSON)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -172,7 +173,7 @@ func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 // @Router    /fileUploadAndDownload/deleteFile [post]
 func (b *FileUploadAndDownloadApi) DeleteFile(c *gin.Context) {
 	var file example.ExaFileUploadAndDownload
-	err := c.ShouldBindJSON(&file)
+	err := c.ShouldBindBodyWith(&file, binding.JSON)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -225,7 +226,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 	var searchInfo request.ExaFileSearchRequest
-	err := c.ShouldBindJSON(&searchInfo)
+	err := c.ShouldBindBodyWith(&searchInfo, binding.JSON)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return

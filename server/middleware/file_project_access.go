@@ -9,6 +9,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // FileProjectAccessHandler 文件项目权限控制中间件
@@ -87,7 +88,7 @@ func extractProjectID(c *gin.Context) string {
 
 	// 4. JSON body（如果是 application/json 请求）
 	var body map[string]interface{}
-	if err := c.ShouldBindJSON(&body); err == nil {
+	if err := c.ShouldBindBodyWith(&body, binding.JSON); err == nil {
 		if id, ok := body["projectId"].(string); ok {
 			return id
 		}
