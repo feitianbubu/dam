@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
@@ -212,6 +213,10 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 		response.FailWithMessage("获取文件详情失败", c)
 		return
 	}
+
+	// 如果存储后端支持预签名URL，替换为预签名URL（1小时有效期）
+	file.Url = fileUploadAndDownloadService.GetPresignedURL(&file, time.Hour)
+
 	response.OkWithDetailed(file, "获取文件详情成功", c)
 }
 
@@ -298,6 +303,9 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 			zap.String("searchType", searchType),
 			zap.Int("resultCount", len(list)))
 	}
+
+	// 为所有文件生成预签名URL（1小时有效期）
+	fileUploadAndDownloadService.GetPresignedURLForFiles(list, time.Hour)
 
 	response.OkWithDetailed(response.PageResult{
 		List:     list,

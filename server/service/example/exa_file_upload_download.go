@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
@@ -471,9 +472,8 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 		} else if !autoMetadata {
 			global.GVA_LOG.Info("自动生成元数据已禁用，跳过文件理解", zap.Uint64("fileID", uint64(fileID)))
 		}
-
-		return f, nil
 	}
+	f.Url = e.GetPresignedURL(&f, time.Hour)
 	return f, nil
 }
 
@@ -713,5 +713,38 @@ func (e *FileUploadAndDownloadService) applyBizMetadataFilters(db *gorm.DB, info
 	// 用户名过滤（可选，用于显示）
 	if info.Username != "" {
 		db = db.Where("username = ?", info.Username)
+	}
+}
+
+// GetPresignedURL 获取文件的预签名URL（如果存储后端支持）
+// 如果存储后端不支持预签名URL，则返回原始URL
+func (e *FileUploadAndDownloadService) GetPresignedURL(file *example.ExaFileUploadAndDownload, expires time.Duration) string {
+	if file.Key == "" {
+		return file.Url
+	}
+
+	oss := upload.NewOss()
+
+	// 检查是否实现了预签名URL接口
+	if ossWithPresigned, ok := oss.(upload.OSSWithPresignedURL); ok {
+		presignedURL, err := ossWithPresigned.GetPresignedURL(file.Key, expires)
+		if err != nil {
+			global.GVA_LOG.Error("生成预签名URL失败，返回原始URL",
+				zap.Uint("fileID", file.ID),
+				zap.String("key", file.Key),
+				zap.Error(err))
+			return file.Url
+		}
+		return presignedURL
+	}
+
+	// 如果不支持预签名URL，返回原始URL
+	return file.Url
+}
+
+// GetPresignedURLForFiles 批量获取文件的预签名URL
+func (e *FileUploadAndDownloadService) GetPresignedURLForFiles(files []example.ExaFileUploadAndDownload, expires time.Duration) {
+	for i := range files {
+		files[i].Url = e.GetPresignedURL(&files[i], expires)
 	}
 }

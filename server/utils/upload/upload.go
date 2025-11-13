@@ -2,6 +2,7 @@ package upload
 
 import (
 	"mime/multipart"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 )
@@ -25,6 +26,12 @@ type OSSWithMetadata interface {
 type OSSWithReplaceFile interface {
 	OSS
 	ReplaceFile(key string, file *multipart.FileHeader) (string, error)
+}
+
+// OSSWithPresignedURL 支持预签名URL的对象存储接口
+type OSSWithPresignedURL interface {
+	OSS
+	GetPresignedURL(key string, expires time.Duration) (string, error)
 }
 
 // NewOss OSS的实例化方法

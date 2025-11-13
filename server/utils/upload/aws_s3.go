@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
@@ -153,4 +154,35 @@ func newSession() *session.Session {
 		),
 	})
 	return sess
+}
+
+//@author: [Assistant]
+//@object: *AwsS3
+//@function: GetPresignedURL
+//@description: Generate a presigned URL for temporary access to a private S3 object
+//@param: key string, expires time.Duration
+//@return: string, error
+
+func (*AwsS3) GetPresignedURL(key string, expires time.Duration) (string, error) {
+	session := newSession()
+	svc := s3.New(session)
+
+	filename := global.GVA_CONFIG.AwsS3.PathPrefix + "/" + key
+
+	req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
+		Bucket: aws.String(global.GVA_CONFIG.AwsS3.Bucket),
+		Key:    aws.String(filename),
+	})
+
+	urlStr, err := req.Presign(expires)
+	if err != nil {
+		global.GVA_LOG.Error("生成预签名URL失败", zap.Any("err", err.Error()))
+		return "", errors.New("生成预签名URL失败, err:" + err.Error())
+	}
+
+	global.GVA_LOG.Debug("生成预签名URL成功",
+		zap.String("key", key),
+		zap.Duration("expires", expires))
+
+	return urlStr, nil
 }

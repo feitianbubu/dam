@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
@@ -63,6 +64,7 @@ func (e *FileUploadAndDownloadService) UpdateFile(id uint, opts *example.FileUpd
 	// 触发异步任务
 	e.triggerAsyncTasks(id, opts.Reprocess, opts.UpdateVector, file.VectorizationDocumentID)
 
+	file.Url = e.GetPresignedURL(&file, time.Hour)
 	return file, nil
 }
 
