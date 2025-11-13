@@ -9,7 +9,7 @@ type FileUploadAndDownloadRouter struct{}
 
 func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gin.RouterGroup) {
 	fileUploadAndDownloadRouter := Router.Group("fileUploadAndDownload")
-	fileUploadAndDownloadRouter.Use(middleware.OperationRecord(), middleware.FileProjectAccessHandler())
+	fileUploadAndDownloadRouter.Use(middleware.OperationRecord())
 	{
 		fileUploadAndDownloadRouter.POST("upload", exaFileUploadAndDownloadApi.UploadFile)                                 // 上传文件
 		fileUploadAndDownloadRouter.GET("getFileDetail", exaFileUploadAndDownloadApi.GetFileDetail)                        // 获取文件详情
