@@ -342,29 +342,24 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 		var existingFile example.ExaFileUploadAndDownload
 		checkErr := global.GVA_DB.Where("name = ? AND class_id = ?", header.Filename, classId).First(&existingFile).Error
 		if checkErr == nil {
-			// 文件名已存在
 			if overwrite {
-				// 允许覆盖，直接调用UpdateFile逻辑（更简洁、统一）
-				global.GVA_LOG.Info("文件名已存在，使用UpdateFile逻辑覆盖",
+				global.GVA_LOG.Info("文件名已存在，直接调用UpdateFile接口覆盖",
 					zap.String("filename", header.Filename),
 					zap.Int("classId", classId),
 					zap.Uint("existingFileID", existingFile.ID))
 
-				// 构建更新选项
 				updateOpts := &example.FileUpdateOptions{
-					NewFile:      header,       // 新文件内容
-					BizMetadata:  bizMetadata,  // 业务元数据
-					Reprocess:    autoMetadata, // 是否重新处理（与autoMetadata保持一致）
-					UpdateVector: false,        // 文件替换后会自动触发重新向量化
-					UpdateUserID: &userID,      // 更新人ID
+					NewFile:      header,
+					BizMetadata:  bizMetadata,
+					Reprocess:    autoMetadata,
+					UpdateVector: false,
+					UpdateUserID: &userID,
 				}
 
-				// 如果提供了元数据，设置元数据
 				if providedMetadata != nil {
 					updateOpts.Metadata = providedMetadata
 				}
 
-				// 调用统一的UpdateFile逻辑，传递真实的authorityID
 				return e.UpdateFile(existingFile.ID, updateOpts, userID, authorityID)
 			} else {
 				err = errors.New("文件名已存在，如果需要覆盖请传参数overwrite=true")
@@ -442,7 +437,6 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 	}
 
 	if noSave == "0" {
-		// 创建新记录（覆盖模式已在前面通过UpdateFile处理）
 		err = e.Upload(&f)
 		if err != nil {
 			return f, err
@@ -451,22 +445,18 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 		fileID := f.ID
 		global.GVA_LOG.Info("文件保存成功", zap.Uint64("fileID", uint64(fileID)))
 
-		// 只有在启用自动生成元数据且未提供metadata的情况下才调用文件理解接口
 		if autoMetadata && (providedMetadata == nil) {
 			global.GVA_LOG.Info("启用自动生成元数据，准备启动文件理解", zap.Uint64("fileID", uint64(fileID)))
 
 			if waitForMetadata {
-				// 同步等待处理完成
 				global.GVA_LOG.Info("同步等待文件处理完成", zap.Uint64("fileID", uint64(fileID)))
 				e.ProcessFileWithRetry(fileID, 3, "同步文件处理")
 
-				// 重新查询文件获取完整数据（包含metadata）
 				f, err = e.FindFile(fileID)
 				if err != nil {
 					global.GVA_LOG.Error("重新查询文件失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
 				}
 			} else {
-				// 异步处理
 				go e.ProcessFileWithRetry(fileID, 3, "异步文件处理")
 			}
 		} else if !autoMetadata {

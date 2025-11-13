@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/example/request"
@@ -15,7 +14,6 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"go.uber.org/zap"
 )
 
 type FileUploadAndDownloadApi struct{}
@@ -42,89 +40,65 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	_, header, err := c.Request.FormFile("file")
 	classId, _ := strconv.Atoi(c.DefaultPostForm("classId", "0"))
 	if classId == 0 {
-		classId = 1 // 默认放在默认分类
+		classId = 1
 	}
 	if err != nil {
-		global.GVA_LOG.Error("接收文件失败!", zap.Error(err))
 		response.FailWithMessage("接收文件失败", c)
 		return
 	}
 
-	// 获取当前用户信息
 	userID := utils.GetUserID(c)
 	userName := utils.GetUserName(c)
 	authorityID := utils.GetUserAuthorityId(c)
 
-	// 构建业务元数据
-	bizMetadata := example.BizMetadata{
-		ProjectID: c.PostForm("projectId"),
-		Tags:      parseTagsFromForm(c.PostForm("tags")),
-	}
-
-	// 获取metadata参数并尝试解析为JSON
 	var fileMetadata *example.FileMetadata
 	if metadataStr := c.PostForm("metadata"); metadataStr != "" {
 		fileMetadata = &example.FileMetadata{}
 		if err := json.Unmarshal([]byte(metadataStr), fileMetadata); err != nil {
-			response.FailWithMessage(fmt.Sprintf("metadata参数格式错误，必须为有效的JSON字符串:%v", err), c)
+			response.FailWithMessage(fmt.Sprintf("metadata参数格式错误: %v", err), c)
 			return
 		}
 	}
 
-	// 获取是否自动生成元数据参数，默认为true
 	autoMetadata := c.DefaultPostForm("autoMetadata", "false") == "true"
-
-	// 获取是否等待metadata参数
 	waitForMetadata := c.DefaultPostForm("waitForMetadata", "false") == "true"
-
-	// 获取是否覆盖同名文件参数，默认为false
 	overwrite := c.DefaultPostForm("overwrite", "false") == "true"
 
-	// 记录上传用户信息
-	global.GVA_LOG.Info("文件上传用户信息",
-		zap.Uint("userID", userID),
-		zap.String("userName", userName),
-		zap.Uint("authorityID", authorityID),
-		zap.String("projectId", bizMetadata.ProjectID),
-		zap.Bool("autoMetadata", autoMetadata),
-		zap.Bool("waitForMetadata", waitForMetadata),
-		zap.Bool("overwrite", overwrite))
-
-	// 构建上传选项
 	uploadOpts := &example.FileUploadOptions{
-		FileHeader:       header,
-		NoSave:           noSave,
-		ClassId:          classId,
-		UserID:           userID,
-		UserName:         userName,
-		AuthorityID:      authorityID,
-		BizMetadata:      &bizMetadata,
+		FileHeader:  header,
+		NoSave:      noSave,
+		ClassId:     classId,
+		UserID:      userID,
+		UserName:    userName,
+		AuthorityID: authorityID,
+		BizMetadata: &example.BizMetadata{
+			ProjectID: c.PostForm("projectId"),
+			Tags:      parseTagsFromForm(c.PostForm("tags")),
+		},
 		ProvidedMetadata: fileMetadata,
 		AutoMetadata:     autoMetadata,
 		WaitForMetadata:  waitForMetadata,
 		Overwrite:        overwrite,
 	}
 
-	// 调用服务层上传文件
 	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(uploadOpts)
 	if err != nil {
-		global.GVA_LOG.Error("上传文件失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("上传文件失败: %v", err), c)
 		return
 	}
 
-	// 根据处理状态返回不同的消息
 	msg := "上传成功"
-	if waitForMetadata && file.ProcessStatus == example.ProcessStatusCompleted {
-		msg = "上传成功，文件处理完成"
-	} else if waitForMetadata {
-		msg = fmt.Sprintf("上传成功，文件处理状态: %s", file.ProcessStatus)
+	if waitForMetadata {
+		if file.ProcessStatus == example.ProcessStatusCompleted {
+			msg = "上传成功，文件处理完成"
+		} else {
+			msg = fmt.Sprintf("上传成功，文件处理状态: %s", file.ProcessStatus)
+		}
 	}
 
 	response.OkWithDetailed(exampleRes.ExaFileResponse{File: file}, msg, c)
 }
 
-// parseTagsFromForm 解析表单中的tags字符串为标签数组
 func parseTagsFromForm(tagsStr string) []string {
 	if tagsStr == "" {
 		return []string{}
@@ -133,31 +107,24 @@ func parseTagsFromForm(tagsStr string) []string {
 	tags := strings.Split(tagsStr, ",")
 	var parsedTags []string
 	for _, tag := range tags {
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
+		if tag = strings.TrimSpace(tag); tag != "" {
 			parsedTags = append(parsedTags, tag)
 		}
 	}
-
 	return parsedTags
 }
 
-// EditFileName 编辑文件名或者备注
 func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 	var file example.ExaFileUploadAndDownload
-	err := c.ShouldBindBodyWith(&file, binding.JSON)
-	if err != nil {
+	if err := c.ShouldBindBodyWith(&file, binding.JSON); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
 
-	// 获取当前用户信息
 	userID := utils.GetUserID(c)
 	authorityID := utils.GetUserAuthorityId(c)
 
-	err = fileUploadAndDownloadService.EditFileName(file, userID, authorityID)
-	if err != nil {
-		global.GVA_LOG.Error("编辑失败!", zap.Error(err))
+	if err := fileUploadAndDownloadService.EditFileName(file, userID, authorityID); err != nil {
 		response.FailWithMessage("编辑失败: "+err.Error(), c)
 		return
 	}
@@ -174,18 +141,15 @@ func (b *FileUploadAndDownloadApi) EditFileName(c *gin.Context) {
 // @Router    /fileUploadAndDownload/deleteFile [post]
 func (b *FileUploadAndDownloadApi) DeleteFile(c *gin.Context) {
 	var file example.ExaFileUploadAndDownload
-	err := c.ShouldBindBodyWith(&file, binding.JSON)
-	if err != nil {
+	if err := c.ShouldBindBodyWith(&file, binding.JSON); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
 
-	// 获取当前用户信息
 	userID := utils.GetUserID(c)
 	authorityID := utils.GetUserAuthorityId(c)
 
 	if err := fileUploadAndDownloadService.DeleteFile(file, userID, authorityID); err != nil {
-		global.GVA_LOG.Error("删除失败!", zap.Error(err))
 		response.FailWithMessage("删除失败: "+err.Error(), c)
 		return
 	}
@@ -209,14 +173,11 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 
 	file, err := fileUploadAndDownloadService.FindFile(fileIdQuery.ID)
 	if err != nil {
-		global.GVA_LOG.Error("获取文件详情失败!", zap.Error(err))
 		response.FailWithMessage("获取文件详情失败", c)
 		return
 	}
 
-	// 如果存储后端支持预签名URL，替换为预签名URL（1小时有效期）
 	file.Url = fileUploadAndDownloadService.GetPresignedURL(&file, time.Hour)
-
 	response.OkWithDetailed(file, "获取文件详情成功", c)
 }
 
@@ -231,8 +192,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 	var searchInfo request.ExaFileSearchRequest
-	err := c.ShouldBindBodyWith(&searchInfo, binding.JSON)
-	if err != nil {
+	if err := c.ShouldBindBodyWith(&searchInfo, binding.JSON); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
@@ -247,13 +207,11 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 
 	var vectorDocumentIDs []string
 	var vectorScores map[uint]float64
-	var searchType string
+	searchType := "传统搜索"
 
-	// 如果有向量搜索参数，先执行向量搜索获取文档ID
 	if searchInfo.IsVectorSearch() {
 		searchType = "向量搜索"
 
-		// 执行向量搜索，获取匹配的文档ID和分数
 		vectorResult, err := fileUploadAndDownloadService.SearchVectorDocuments(
 			searchInfo.Prompt,
 			searchInfo.KnowledgeIDs,
@@ -262,14 +220,11 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 			searchInfo.SearchType,
 		)
 		if err != nil {
-			global.GVA_LOG.Error("向量搜索失败!", zap.Error(err))
 			response.FailWithMessage("向量搜索失败: "+err.Error(), c)
 			return
 		}
 
 		if len(vectorResult.DocumentIDs) == 0 {
-			// 没有匹配的文档，返回空结果
-			global.GVA_LOG.Info("向量搜索无匹配结果", zap.String("prompt", searchInfo.Prompt))
 			response.OkWithDetailed(response.PageResult{
 				List:     []example.ExaFileUploadAndDownload{},
 				Total:    0,
@@ -279,32 +234,20 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 			return
 		}
 
-		// 保存向量搜索结果
 		vectorDocumentIDs = vectorResult.DocumentIDs
 		vectorScores = vectorResult.Scores
-
-		global.GVA_LOG.Info("向量搜索完成",
-			zap.String("prompt", searchInfo.Prompt),
-			zap.Int("matchedDocuments", len(vectorDocumentIDs)))
-	} else {
-		searchType = "传统搜索"
 	}
 
 	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoListWithVectorFilter(searchInfo, vectorDocumentIDs)
 	if err != nil {
-		global.GVA_LOG.Error("文件搜索失败!", zap.Error(err))
 		response.FailWithMessage("文件搜索失败: "+err.Error(), c)
 		return
 	}
 
 	if searchInfo.IsVectorSearch() {
 		list = fileUploadAndDownloadService.ApplyVectorScoresToResults(list, vectorScores)
-		global.GVA_LOG.Info("文件搜索完成",
-			zap.String("searchType", searchType),
-			zap.Int("resultCount", len(list)))
 	}
 
-	// 为所有文件生成预签名URL（1小时有效期）
 	fileUploadAndDownloadService.GetPresignedURLForFiles(list, time.Hour)
 
 	response.OkWithDetailed(response.PageResult{
@@ -325,13 +268,11 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 // @Router    /fileUploadAndDownload/importURL [post]
 func (b *FileUploadAndDownloadApi) ImportURL(c *gin.Context) {
 	var file []example.ExaFileUploadAndDownload
-	err := c.ShouldBindJSON(&file)
-	if err != nil {
+	if err := c.ShouldBindJSON(&file); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
 	if err := fileUploadAndDownloadService.ImportURL(&file); err != nil {
-		global.GVA_LOG.Error("导入URL失败!", zap.Error(err))
 		response.FailWithMessage("导入URL失败", c)
 		return
 	}
@@ -359,28 +300,20 @@ func (b *FileUploadAndDownloadApi) RetryFileProcessing(c *gin.Context) {
 		fileID = uint(id)
 	}
 
-	// 同步重试处理 - 使用通用重试逻辑
-	err := fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 3, "手动文件处理重试")
-	if err != nil {
-		global.GVA_LOG.Error("重试处理失败!", zap.Error(err))
+	if err := fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 3, "手动文件处理重试"); err != nil {
 		response.FailWithMessage(fmt.Sprintf("重试处理失败: %v", err), c)
 		return
 	}
 
-	// 获取处理后的文件信息，包含metadata
 	file, err := fileUploadAndDownloadService.FindFile(fileID)
 	if err != nil {
-		global.GVA_LOG.Error("获取处理后文件信息失败!", zap.Error(err))
 		response.FailWithMessage(fmt.Sprintf("获取文件信息失败: %v", err), c)
 		return
 	}
 
-	// 返回metadata内容作为处理结果
 	if file.Metadata.IsEmpty() {
-		global.GVA_LOG.Info("文件处理成功，但metadata为空", zap.Uint64("fileID", uint64(fileID)))
 		response.OkWithDetailed(example.FileMetadata{}, "重试处理成功，但metadata为空", c)
 	} else {
-		global.GVA_LOG.Info("重试处理成功", zap.Uint64("fileID", uint64(fileID)), zap.String("metadata", file.Metadata.String()))
 		response.OkWithDetailed(file.Metadata, "重试处理成功", c)
 	}
 }
