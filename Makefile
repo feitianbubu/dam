@@ -18,6 +18,7 @@ TAGS_OPT           ?= latest
 PLUGIN             ?= email
 
 VERSION?=$(shell git describe --tags --always --dirty)
+BUILD_TIME?=$(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 #容器环境前后端共同打包
 build: build-web build-server
@@ -80,7 +81,7 @@ swag:
 	$(eval SWAG := build/dist/swag)
 	@if ! command -v swag > /dev/null 2>&1; then echo "Installing swag..." && go install github.com/swaggo/swag/cmd/swag@latest; fi
 	@cd server && swag init --parseDependency -t Dam,Oidc -o ../${SWAG} --ot=json
-	@sed 's/{{\.Version}}/$(VERSION)/g' ${SWAG}/swagger.json > ${SWAG}/swagger.json.tmp \
+	@sed 's/{{\.Version}}/$(VERSION) (Built: $(BUILD_TIME))/g' ${SWAG}/swagger.json > ${SWAG}/swagger.json.tmp \
 	 && mv ${SWAG}/swagger.json.tmp ${SWAG}/swagger.json
 	@if command -v swagger2openapi > /dev/null 2>&1; then \
 		echo "Converting to OpenAPI 3.0..."; \
