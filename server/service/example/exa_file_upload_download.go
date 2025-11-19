@@ -336,6 +336,7 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 	waitForMetadata := opts.WaitForMetadata
 	providedMetadata := opts.ProvidedMetadata
 	overwrite := opts.Overwrite
+	publicRead := opts.PublicRead
 
 	// 上传前先检查文件名是否已存在
 	if noSave == "0" {
@@ -360,6 +361,11 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 					updateOpts.Metadata = providedMetadata
 				}
 
+				// 只在用户明确传了 publicRead 参数时才设置（nil表示不修改）
+				if publicRead != nil {
+					updateOpts.PublicRead = publicRead
+				}
+
 				return e.UpdateFile(existingFile.ID, updateOpts, userID, authorityID)
 			} else {
 				err = errors.New("文件名已存在，如果需要覆盖请传参数overwrite=true")
@@ -380,7 +386,24 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 	var filePath, key, etag string
 	var uploadErr error
 
-	if minioClient, ok := oss.(*upload.Minio); ok && (minioMetadata != nil || minioTags != nil) {
+	// 确定实际的 publicRead 值（默认为 false）
+	actualPublicRead := false
+	if publicRead != nil {
+		actualPublicRead = *publicRead
+	}
+
+	// 优先检查是否支持 ACL
+	if ossWithACL, ok := oss.(upload.OSSWithACL); ok {
+		// 支持 ACL 的存储后端（如 AWS S3）
+		filePath, key, etag, uploadErr = ossWithACL.UploadFileWithACL(header, minioMetadata, actualPublicRead)
+		global.GVA_LOG.Info("使用支持ACL的上传方法",
+			zap.String("filename", header.Filename),
+			zap.Bool("publicRead", actualPublicRead),
+			zap.Any("metadata", minioMetadata))
+	} else if publicRead != nil && *publicRead {
+		// 不支持 ACL 但用户明确要求公开读，返回错误
+		return file, errors.New("当前存储后端不支持公开读（ACL）设置，请联系管理员配置支持ACL的存储服务")
+	} else if minioClient, ok := oss.(*upload.Minio); ok && (minioMetadata != nil || minioTags != nil) {
 		filePath, key, etag, uploadErr = minioClient.UploadFileWithMetadataAndTags(header, minioMetadata, minioTags)
 		global.GVA_LOG.Info("使用MinIO混合方案上传（元数据+标签）",
 			zap.String("filename", header.Filename),
@@ -419,6 +442,7 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 		Etag:          etag,
 		UserID:        userID,
 		Username:      userName,
+		PublicRead:    actualPublicRead,
 		ProcessStatus: example.ProcessStatusPending,
 	}
 
@@ -710,6 +734,11 @@ func (e *FileUploadAndDownloadService) applyBizMetadataFilters(db *gorm.DB, info
 // 如果存储后端不支持预签名URL，则返回原始URL
 func (e *FileUploadAndDownloadService) GetPresignedURL(file *example.ExaFileUploadAndDownload, expires time.Duration) string {
 	if file.Key == "" {
+		return file.Url
+	}
+
+	// 如果文件是公开的，直接返回原始URL，不需要预签名
+	if file.PublicRead {
 		return file.Url
 	}
 

@@ -32,6 +32,7 @@ type FileUploadAndDownloadApi struct{}
 // @Param     autoMetadata  formData  bool                                           false  "是否自动生成元数据，默认false"
 // @Param     waitForMetadata  formData  bool                                                   false  "是否等待metadata处理完成再返回，默认false（异步处理）"
 // @Param     overwrite  formData  bool                                                   false  "是否覆盖同名文件，默认false（不覆盖则返回错误）"
+// @Param     publicRead  formData  bool                                                   false  "是否允许公开读，默认false（私有）"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
 func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
@@ -64,6 +65,13 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	waitForMetadata := c.DefaultPostForm("waitForMetadata", "false") == "true"
 	overwrite := c.DefaultPostForm("overwrite", "false") == "true"
 
+	// 处理 publicRead 参数：区分"未传参数"和"明确传了 false"
+	var publicRead *bool
+	if publicReadStr := c.PostForm("publicRead"); publicReadStr != "" {
+		value := publicReadStr == "true"
+		publicRead = &value
+	}
+
 	uploadOpts := &example.FileUploadOptions{
 		FileHeader:  header,
 		NoSave:      noSave,
@@ -79,6 +87,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		AutoMetadata:     autoMetadata,
 		WaitForMetadata:  waitForMetadata,
 		Overwrite:        overwrite,
+		PublicRead:       publicRead,
 	}
 
 	file, err = fileUploadAndDownloadService.UploadFileWithMetadata(uploadOpts)

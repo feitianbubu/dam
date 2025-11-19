@@ -28,6 +28,7 @@ import (
 // @Param     tags  formData  string  false  "标签，用逗号分隔"
 // @Param     reprocess  formData  bool  false  "是否重新处理"
 // @Param     updateVector  formData  bool  false  "是否更新向量"
+// @Param     publicRead  formData  bool  false  "是否允许公开读"
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "更新文件信息成功，返回包括文件详情"
 // @Router    /fileUploadAndDownload/update [put]
 func (b *FileUploadAndDownloadApi) UpdateFile(c *gin.Context) {
@@ -82,6 +83,11 @@ func (b *FileUploadAndDownloadApi) prepareUpdateOptions(req *request.ExaFileUpda
 	opts.Reprocess = req.Reprocess != nil && *req.Reprocess
 	opts.UpdateVector = req.UpdateVector != nil && *req.UpdateVector
 
+	// 设置 PublicRead（使用指针，nil表示不修改）
+	if req.PublicRead != nil {
+		opts.PublicRead = req.PublicRead
+	}
+
 	return opts
 }
 
@@ -129,6 +135,11 @@ func (b *FileUploadAndDownloadApi) parseUpdateRequest(c *gin.Context) (*request.
 	if updateVectorStr := c.PostForm("updateVector"); updateVectorStr != "" {
 		updateVector := updateVectorStr == "true"
 		req.UpdateVector = &updateVector
+	}
+
+	if publicReadStr := c.PostForm("publicRead"); publicReadStr != "" {
+		publicRead := publicReadStr == "true"
+		req.PublicRead = &publicRead
 	}
 
 	return req, nil

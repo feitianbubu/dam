@@ -15,8 +15,9 @@ type ExaFileUploadAndDownload struct {
 	ClassId  int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
 	Url      string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
 	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
-	Key      string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                    // 编号
-	Etag     string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                             // 文件ETag
+	Key        string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                        // 编号
+	Etag       string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                                 // 文件ETag
+	PublicRead bool   `json:"publicRead" form:"publicRead" gorm:"column:public_read;default:false;comment:是否允许公开读"` // 是否允许公开读
 
 	// 用户信息 - 一级字段，便于查询和索引
 	UserID       uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`          // 上传用户ID
@@ -208,9 +209,10 @@ type FileUploadOptions struct {
 	BizMetadata      *BizMetadata  // 业务元数据（可选）
 
 	// 处理选项
-	AutoMetadata    bool // 是否自动生成元数据
-	WaitForMetadata bool // 是否等待metadata处理完成
-	Overwrite       bool // 是否覆盖同名文件
+	AutoMetadata    bool  // 是否自动生成元数据
+	WaitForMetadata bool  // 是否等待metadata处理完成
+	Overwrite       bool  // 是否覆盖同名文件
+	PublicRead      *bool // 是否允许公开读（nil表示使用默认值：私有）
 }
 
 // FileUpdateOptions 文件更新选项
@@ -230,6 +232,7 @@ type FileUpdateOptions struct {
 	UpdateUserID *uint // 修改人ID
 
 	// 处理选项
-	Reprocess    bool // 是否重新处理文件分析
-	UpdateVector bool // 是否更新向量化数据
+	Reprocess    bool  // 是否重新处理文件分析
+	UpdateVector bool  // 是否更新向量化数据
+	PublicRead   *bool // 是否允许公开读（nil表示不修改）
 }

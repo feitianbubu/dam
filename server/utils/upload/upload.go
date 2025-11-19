@@ -22,6 +22,18 @@ type OSSWithMetadata interface {
 	DeleteFile(key string) error
 }
 
+// OSSWithACL 支持ACL的对象存储接口
+type OSSWithACL interface {
+	OSSWithMetadata
+	UploadFileWithACL(file *multipart.FileHeader, metadata map[string]string, publicRead bool) (string, string, string, error)
+}
+
+// OSSWithACLUpdate 支持更新ACL的对象存储接口
+type OSSWithACLUpdate interface {
+	OSS
+	UpdateObjectACL(key string, publicRead bool) error
+}
+
 // OSSWithReplaceFile 支持文件替换的对象存储接口
 type OSSWithReplaceFile interface {
 	OSS

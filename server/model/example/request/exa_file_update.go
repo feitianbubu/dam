@@ -17,6 +17,7 @@ type ExaFileUpdateRequest struct {
 
 	Reprocess    *bool `json:"reprocess" form:"reprocess" example:"false"`
 	UpdateVector *bool `json:"updateVector" form:"updateVector" example:"false"`
+	PublicRead   *bool `json:"publicRead" form:"publicRead" example:"false"`
 }
 
 // GetBizMetadata 获取业务元数据

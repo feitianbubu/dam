@@ -21,6 +21,10 @@ import (
 
 type AwsS3 struct{}
 
+// 确保 AwsS3 实现了 OSSWithACL 和 OSSWithACLUpdate 接口
+var _ OSSWithACL = (*AwsS3)(nil)
+var _ OSSWithACLUpdate = (*AwsS3)(nil)
+
 //@author: [WqyJh](https://github.com/WqyJh)
 //@object: *AwsS3
 //@function: UploadFile
@@ -185,4 +189,119 @@ func (*AwsS3) GetPresignedURL(key string, expires time.Duration) (string, error)
 		zap.Duration("expires", expires))
 
 	return urlStr, nil
+}
+
+//@author: [Assistant]
+//@object: *AwsS3
+//@function: UploadFileWithMetadata
+//@description: Upload file to S3 with metadata (without ACL control)
+//@param: file *multipart.FileHeader, metadata map[string]string
+//@return: string, string, string, error
+
+func (s *AwsS3) UploadFileWithMetadata(file *multipart.FileHeader, metadata map[string]string) (string, string, string, error) {
+	return s.UploadFileWithACL(file, metadata, false)
+}
+
+//@author: [Assistant]
+//@object: *AwsS3
+//@function: UploadFileWithACL
+//@description: Upload file to S3 with metadata and ACL control
+//@param: file *multipart.FileHeader, metadata map[string]string, publicRead bool
+//@return: string, string, string, error
+
+func (*AwsS3) UploadFileWithACL(file *multipart.FileHeader, metadata map[string]string, publicRead bool) (string, string, string, error) {
+	session := newSession()
+	uploader := s3manager.NewUploader(session)
+
+	ext := filepath.Ext(file.Filename)
+	fileKey := utils.MD5V([]byte(strings.TrimSuffix(file.Filename, ext))) + ext
+	filename := global.GVA_CONFIG.AwsS3.PathPrefix + "/" + fileKey
+	f, openError := file.Open()
+	if openError != nil {
+		global.GVA_LOG.Error("function file.Open() failed", zap.Any("err", openError.Error()))
+		return "", "", "", errors.New("function file.Open() failed, err:" + openError.Error())
+	}
+	defer f.Close()
+
+	uploadInput := &s3manager.UploadInput{
+		Bucket: aws.String(global.GVA_CONFIG.AwsS3.Bucket),
+		Key:    aws.String(filename),
+		Body:   f,
+	}
+
+	// 设置 ACL
+	if publicRead {
+		uploadInput.ACL = aws.String("public-read")
+	} else {
+		uploadInput.ACL = aws.String("private")
+	}
+
+	// 根据文件扩展名检测 MIME 类型
+	contentType := mime.TypeByExtension(ext)
+	if contentType != "" {
+		uploadInput.ContentType = aws.String(contentType)
+	}
+
+	// 设置元数据
+	if metadata != nil && len(metadata) > 0 {
+		userMetadata := make(map[string]*string)
+		for k, v := range metadata {
+			value := v
+			userMetadata[k] = &value
+		}
+		uploadInput.Metadata = userMetadata
+	}
+
+	result, err := uploader.Upload(uploadInput)
+	if err != nil {
+		global.GVA_LOG.Error("function uploader.Upload() failed", zap.Any("err", err.Error()))
+		return "", "", "", err
+	}
+
+	global.GVA_LOG.Info("文件上传到S3成功",
+		zap.String("objectName", filename),
+		zap.String("etag", aws.StringValue(result.ETag)),
+		zap.Bool("publicRead", publicRead),
+		zap.Any("metadata", metadata))
+
+	filename = strings.TrimPrefix(filename, "/")
+	etag := strings.Trim(aws.StringValue(result.ETag), "\"")
+	return global.GVA_CONFIG.AwsS3.BaseURL + "/" + filename, fileKey, etag, nil
+}
+
+//@author: [Assistant]
+//@object: *AwsS3
+//@function: UpdateObjectACL
+//@description: Update the ACL of an existing S3 object
+//@param: key string, publicRead bool
+//@return: error
+
+func (*AwsS3) UpdateObjectACL(key string, publicRead bool) error {
+	session := newSession()
+	svc := s3.New(session)
+
+	filename := global.GVA_CONFIG.AwsS3.PathPrefix + "/" + key
+
+	// 设置 ACL
+	acl := "private"
+	if publicRead {
+		acl = "public-read"
+	}
+
+	_, err := svc.PutObjectAcl(&s3.PutObjectAclInput{
+		Bucket: aws.String(global.GVA_CONFIG.AwsS3.Bucket),
+		Key:    aws.String(filename),
+		ACL:    aws.String(acl),
+	})
+
+	if err != nil {
+		global.GVA_LOG.Error("更新S3对象ACL失败", zap.Any("err", err.Error()))
+		return errors.New("更新S3对象ACL失败, err:" + err.Error())
+	}
+
+	global.GVA_LOG.Info("更新S3对象ACL成功",
+		zap.String("key", key),
+		zap.String("acl", acl))
+
+	return nil
 }

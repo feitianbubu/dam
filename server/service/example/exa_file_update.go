@@ -3,6 +3,7 @@ package example
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,18 @@ func (e *FileUploadAndDownloadService) UpdateFile(id uint, opts *example.FileUpd
 		}
 	}
 
+	// 如果 PublicRead 改变，同步更新 OSS 的 ACL
+	if opts.PublicRead != nil {
+		if err := e.syncPublicReadToOSS(&file); err != nil {
+			global.GVA_LOG.Warn("同步 PublicRead 到 OSS 失败",
+				zap.Uint("fileID", file.ID),
+				zap.String("key", file.Key),
+				zap.Bool("publicRead", file.PublicRead),
+				zap.Error(err))
+			// 不返回错误，允许继续（数据库已更新）
+		}
+	}
+
 	// 触发异步任务
 	e.triggerAsyncTasks(id, opts.Reprocess, opts.UpdateVector, file.VectorizationDocumentID)
 
@@ -113,6 +126,11 @@ func (e *FileUploadAndDownloadService) buildUpdateFields(opts *example.FileUpdat
 			return nil, err
 		}
 		updates["biz_metadata"] = string(bizMetadataJSON)
+	}
+
+	// 更新公开读权限
+	if opts.PublicRead != nil {
+		updates["public_read"] = *opts.PublicRead
 	}
 
 	// 更新文件元数据
@@ -298,6 +316,44 @@ func (e *FileUploadAndDownloadService) replaceFileInStorage(file *example.ExaFil
 		zap.String("oldType", file.FileType),
 		zap.String("newType", newFileType),
 		zap.String("key", file.Key))
+
+	// 同步文件的 PublicRead 设置到 OSS ACL
+	// 注意：替换文件后，S3 默认会使用 bucket 默认 ACL，可能会丢失原有的 public-read 设置
+	// 因此需要重新设置 ACL 以保持一致性
+	if err := e.syncPublicReadToOSS(file); err != nil {
+		global.GVA_LOG.Warn("替换文件后同步 ACL 失败",
+			zap.Uint("fileID", file.ID),
+			zap.String("key", file.Key),
+			zap.Error(err))
+		// 不返回错误，允许继续（文件已成功替换）
+	}
+
+	return nil
+}
+
+// syncPublicReadToOSS 同步 PublicRead 到 OSS 的 ACL
+func (e *FileUploadAndDownloadService) syncPublicReadToOSS(file *example.ExaFileUploadAndDownload) error {
+	oss := upload.NewOss()
+
+	// 检查是否支持 ACL 更新
+	aclUpdater, ok := oss.(upload.OSSWithACLUpdate)
+	if !ok {
+		// 不支持 ACL 更新的存储后端，跳过（记录日志但不报错）
+		global.GVA_LOG.Debug("当前存储后端不支持 ACL 更新，跳过同步",
+			zap.Uint("fileID", file.ID),
+			zap.String("key", file.Key))
+		return nil
+	}
+
+	// 更新 OSS 的 ACL
+	if err := aclUpdater.UpdateObjectACL(file.Key, file.PublicRead); err != nil {
+		return fmt.Errorf("更新 OSS ACL 失败: %w", err)
+	}
+
+	global.GVA_LOG.Info("同步 PublicRead 到 OSS 成功",
+		zap.Uint("fileID", file.ID),
+		zap.String("key", file.Key),
+		zap.Bool("publicRead", file.PublicRead))
 
 	return nil
 }
