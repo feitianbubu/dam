@@ -642,20 +642,26 @@ func (e *FileUploadAndDownloadService) getDefaultKnowledgeIDs() []string {
 	return []string{}
 }
 
-func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
-	return e.GetFileRecordInfoListWithVectorFilter(info, nil)
-}
+//func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithSearch(info request.ExaFileSearchRequest) (list []example.ExaFileUploadAndDownload, total int64, err error) {
+//	return e.GetFileRecordInfoListWithVectorFilter(info, nil)
+//}
 
-// GetFileRecordInfoListWithVectorFilter 执行文件搜索，支持向量文档ID过滤
 func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(info request.ExaFileSearchRequest, vectorDocumentIDs []string) (list []example.ExaFileUploadAndDownload, total int64, err error) {
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
 
-	// 传统过滤条件
-	if len(info.Keyword) > 0 {
+	// 关键字或向量文档ID过滤（OR关系）
+	if len(info.Keyword) > 0 && len(vectorDocumentIDs) > 0 {
+		db = db.Where(
+			global.GVA_DB.Where("name LIKE ?", "%"+info.Keyword+"%").Or("vectorization_document_id IN ?", vectorDocumentIDs),
+		)
+	} else if len(info.Keyword) > 0 {
 		db = db.Where("name LIKE ?", "%"+info.Keyword+"%")
+	} else if len(vectorDocumentIDs) > 0 {
+		db = db.Where("vectorization_document_id IN ?", vectorDocumentIDs)
 	}
+
 	if info.ClassId > 0 {
 		db = db.Where("class_id = ?", info.ClassId)
 	}
@@ -668,11 +674,6 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(inf
 		db = db.Where("etag = ?", info.Etag)
 	}
 
-	// 向量文档ID过滤（如果提供）
-	if len(vectorDocumentIDs) > 0 {
-		db = db.Where("vectorization_document_id IN ?", vectorDocumentIDs)
-	}
-
 	// 执行查询
 	err = db.Count(&total).Error
 	if err != nil {
@@ -683,15 +684,19 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoListWithVectorFilter(inf
 	return list, total, err
 }
 
-func (e *FileUploadAndDownloadService) ApplyVectorScoresToResults(list []example.ExaFileUploadAndDownload, scores map[uint]float64) []example.ExaFileUploadAndDownload {
-	if scores == nil {
+func (e *FileUploadAndDownloadService) ApplyVectorScoresToResults(list []example.ExaFileUploadAndDownload, scores map[uint]float64, keyword string) []example.ExaFileUploadAndDownload {
+	if scores == nil && keyword == "" {
 		return list
 	}
 
 	// 为查询结果填充分数信息
 	for i := range list {
 		if score, exists := scores[list[i].ID]; exists {
+			// 向量搜索匹配的分数（0-1之间）
 			list[i].Score = score
+		} else if keyword != "" && strings.Contains(strings.ToLower(list[i].Name), strings.ToLower(keyword)) {
+			// 关键词精确匹配给予高分（1.0），优先于向量搜索结果
+			list[i].Score = 1.0
 		}
 	}
 

@@ -211,6 +211,9 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 	if searchInfo.PageSize <= 0 {
 		searchInfo.PageSize = 10
 	}
+	if searchInfo.Keyword == "" {
+		searchInfo.Keyword = searchInfo.Prompt
+	}
 
 	searchInfo.GetSearchDefaults()
 
@@ -254,7 +257,7 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 	}
 
 	if searchInfo.IsVectorSearch() {
-		list = fileUploadAndDownloadService.ApplyVectorScoresToResults(list, vectorScores)
+		list = fileUploadAndDownloadService.ApplyVectorScoresToResults(list, vectorScores, searchInfo.Keyword)
 	}
 
 	fileUploadAndDownloadService.GetPresignedURLForFiles(list, time.Hour)
