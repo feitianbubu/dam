@@ -50,7 +50,7 @@ func NewMultimodalAPIClient() *MultimodalAPIClient {
 
 	timeout := time.Duration(fuConfig.Timeout) * time.Second
 	if timeout == 0 {
-		timeout = 30 * time.Second // 默认30秒超时
+		timeout = 1800 * time.Second
 	}
 
 	mac := &MultimodalAPIClient{

@@ -312,7 +312,7 @@ func (b *FileUploadAndDownloadApi) RetryFileProcessing(c *gin.Context) {
 		fileID = uint(id)
 	}
 
-	if err := fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 3, "手动文件处理重试"); err != nil {
+	if err := fileUploadAndDownloadService.ProcessFileWithRetry(fileID, 0, "手动文件处理重试"); err != nil {
 		response.FailWithMessage(fmt.Sprintf("重试处理失败: %v", err), c)
 		return
 	}

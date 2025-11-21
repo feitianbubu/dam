@@ -33,16 +33,7 @@ func NewFileProcessor(understandingService FileUnderstandingService) FileProcess
 	}
 }
 
-// ProcessFile 处理文件，异步调用多模态API并更新数据库
 func (p *FileProcessorImpl) ProcessFile(fileID uint) error {
-	if err := p.processFileAsync(fileID); err != nil {
-		global.GVA_LOG.Error("文件处理失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
-	}
-	return nil
-}
-
-// processFileAsync 异步处理文件
-func (p *FileProcessorImpl) processFileAsync(fileID uint) error {
 	global.GVA_LOG.Info("开始处理文件", zap.Uint64("fileID", uint64(fileID)))
 
 	// 获取文件信息
@@ -63,9 +54,11 @@ func (p *FileProcessorImpl) processFileAsync(fileID uint) error {
 	metadata, err := p.understandingService.AnalyzeFile(file.Url, file.FileType)
 	if err != nil {
 		// 处理失败，更新状态
-		errMsg := err.Error()
 		global.GVA_LOG.Error("文件分析失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
-		return p.UpdateProcessStatus(fileID, example.ProcessStatusFailed, nil, errMsg)
+		if err := p.UpdateProcessStatus(fileID, example.ProcessStatusFailed, nil, err.Error()); err != nil {
+			return err
+		}
+		return err
 	}
 
 	// 处理成功，更新元数据和状态

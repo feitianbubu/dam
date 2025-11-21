@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -79,8 +78,8 @@ func NewYunyiAnalyzer(client *MultimodalAPIClient) *YunyiAnalyzer {
 		BaseAnalyzer: NewBaseAnalyzer(client),
 		apiURL:       cfg.APIURL,
 		apiKey:       cfg.APIKey,
-		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+		httpClient:   &http.Client{
+			//Timeout: 60 * time.Second,
 		},
 	}
 }
