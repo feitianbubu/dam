@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"gorm.io/gorm/logger"
@@ -21,6 +22,7 @@ func (c *Writer) Printf(message string, data ...any) {
 
 	// 当有日志时候均需要输出到控制台
 	fmt.Printf(message, data...)
+	fmt.Println()
 
 	// 当开启了zap的情况，会打印到日志记录
 	if c.config.LogZap {
