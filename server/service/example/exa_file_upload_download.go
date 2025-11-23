@@ -369,10 +369,6 @@ func (e *FileUploadAndDownloadService) UploadFileWithMetadata(opts *example.File
 				return e.UpdateFile(existingFile.ID, updateOpts, userID, authorityID)
 			} else {
 				err = errors.New("文件名已存在，如果需要覆盖请传参数overwrite=true")
-				global.GVA_LOG.Warn(err.Error(),
-					zap.String("filename", header.Filename),
-					zap.Int("classId", classId),
-					zap.Uint("existingFileID", existingFile.ID))
 				return file, err
 			}
 		}

@@ -112,6 +112,19 @@ func OperationRecord() gin.HandlerFunc {
 				record.Body = "超出记录长度"
 			}
 		}
+		// 统一打印请求和响应日志
+		global.GVA_LOG.Info("API Request/Response",
+			zap.String("method", record.Method),
+			zap.String("path", record.Path),
+			zap.String("ip", record.Ip),
+			zap.Int("status", record.Status),
+			zap.Duration("latency", record.Latency),
+			zap.Int("user_id", record.UserID),
+			zap.String("request", record.Body),
+			zap.String("response", record.Resp),
+			zap.String("error", record.ErrorMessage),
+		)
+
 		if err := global.GVA_DB.Create(&record).Error; err != nil {
 			global.GVA_LOG.Error("create operation record error:", zap.Error(err))
 		}
