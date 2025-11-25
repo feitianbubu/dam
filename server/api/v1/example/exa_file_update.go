@@ -23,8 +23,7 @@ import (
 // @Param     id  formData  uint  true  "文件ID"
 // @Param     file  formData  file  false  "新文件（可选，如果提供则替换原文件内容）"
 // @Param     name  formData  string  false  "文件名"
-// @Param     classId  formData  int  false  "分类ID"
-// @Param     projectId  formData  string  false  "项目ID"
+// @Param     projectId  formData  int  false  "项目ID"
 // @Param     tags  formData  string  false  "标签，用逗号分隔"
 // @Param     reprocess  formData  bool  false  "是否重新处理"
 // @Param     updateVector  formData  bool  false  "是否更新向量"
@@ -111,17 +110,22 @@ func (b *FileUploadAndDownloadApi) parseUpdateRequest(c *gin.Context) (*request.
 		req.Name = &name
 	}
 
-	if classIdStr := c.PostForm("classId"); classIdStr != "" {
-		classId, err := strconv.Atoi(classIdStr)
+	// 优先读取 projectId，否则读取 classId（兼容旧接口）
+	var classId *int
+	if projectIdStr := c.PostForm("projectId"); projectIdStr != "" {
+		val, err := strconv.Atoi(projectIdStr)
+		if err != nil {
+			return nil, errors.New("项目ID格式错误")
+		}
+		classId = &val
+	} else if classIdStr := c.PostForm("classId"); classIdStr != "" {
+		val, err := strconv.Atoi(classIdStr)
 		if err != nil {
 			return nil, errors.New("分类ID格式错误")
 		}
-		req.ClassId = &classId
+		classId = &val
 	}
-
-	if projectId := c.PostForm("projectId"); projectId != "" {
-		req.ProjectID = &projectId
-	}
+	req.ClassId = classId
 
 	if tags := c.PostForm("tags"); tags != "" {
 		req.Tags = &tags

@@ -9,9 +9,8 @@ import (
 type ExaFileUpdateRequest struct {
 	ID uint `json:"id" form:"id" binding:"required" example:"1"`
 
-	Name      *string `json:"name" form:"name" example:"updated_file.jpg"`
-	ClassId   *int    `json:"classId" form:"classId" example:"1"`
-	ProjectID *string `json:"projectId" form:"projectId" example:"2"`
+	Name    *string `json:"name" form:"name" example:"updated_file.jpg"`
+	ClassId *int    `json:"classId" form:"classId" example:"1"`
 
 	Tags *string `json:"tags" form:"tags" example:"cinx,test"`
 
@@ -24,16 +23,12 @@ type ExaFileUpdateRequest struct {
 func (r *ExaFileUpdateRequest) GetBizMetadata() *example.BizMetadata {
 	bizMetadata := &example.BizMetadata{}
 
-	if r.ProjectID != nil {
-		bizMetadata.ProjectID = *r.ProjectID
-	}
-
 	if r.Tags != nil {
 		bizMetadata.Tags = strings.Split(*r.Tags, ",")
 	}
 
 	// 如果没有任何字段被设置，返回nil
-	if bizMetadata.ProjectID == "" && len(bizMetadata.Tags) == 0 {
+	if len(bizMetadata.Tags) == 0 {
 		return nil
 	}
 

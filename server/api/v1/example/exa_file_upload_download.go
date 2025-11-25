@@ -25,8 +25,7 @@ type FileUploadAndDownloadApi struct{}
 // @accept    multipart/form-data
 // @Produce   application/json
 // @Param     file  formData  file                                                           true  "上传文件示例"
-// @Param     classId  formData  int                                                            false  "分类ID，默认为1"
-// @Param     projectId  formData  string                                                       false  "项目ID"
+// @Param     projectId  formData  int                                                            false  "项目ID，默认为1"
 // @Param     tags  formData  string                                                         false  "自定义标签，用逗号分隔，如：tag1,tag2,tag3"
 // @Param     metadata  formData  string                                                       false  "文件元数据，JSON格式字符串"
 // @Param     autoMetadata  formData  bool                                           false  "是否自动生成元数据，默认false"
@@ -39,7 +38,14 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	var file example.ExaFileUploadAndDownload
 	noSave := c.DefaultQuery("noSave", "0")
 	_, header, err := c.Request.FormFile("file")
-	classId, _ := strconv.Atoi(c.DefaultPostForm("classId", "0"))
+
+	// 优先读取 projectId，否则读取 classId（兼容旧接口）
+	var classId int
+	if projectIdStr := c.PostForm("projectId"); projectIdStr != "" {
+		classId, _ = strconv.Atoi(projectIdStr)
+	} else {
+		classId, _ = strconv.Atoi(c.DefaultPostForm("classId", "0"))
+	}
 	if classId == 0 {
 		classId = 1
 	}
@@ -80,8 +86,7 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 		UserName:    userName,
 		AuthorityID: authorityID,
 		BizMetadata: &example.BizMetadata{
-			ProjectID: c.PostForm("projectId"),
-			Tags:      parseTagsFromForm(c.PostForm("tags")),
+			Tags: parseTagsFromForm(c.PostForm("tags")),
 		},
 		ProvidedMetadata: fileMetadata,
 		AutoMetadata:     autoMetadata,
@@ -196,7 +201,7 @@ func (b *FileUploadAndDownloadApi) GetFileDetail(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
-// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, 分类id, 项目id, 标签过滤, 用户名过滤, etag过滤, 可选的向量搜索参数"
+// @Param     data  body      request.ExaFileSearchRequest                                        true  "页码, 每页大小, projectId(项目id), 标签过滤, 用户名过滤, etag过滤, 可选的向量搜索参数"
 // @Success   200   {object}  response.Response{data=response.PageResult,msg=string}  "分页文件列表,返回包括列表,总数,页码,每页数量"
 // @Router    /fileUploadAndDownload/getFileList [post]
 func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
@@ -204,6 +209,16 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 	if err := c.ShouldBindBodyWith(&searchInfo, binding.JSON); err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
+	}
+
+	// API 层转换：如果 JSON body 中有 projectId，优先使用并映射到 classId
+	var bodyMap map[string]interface{}
+	if err := c.ShouldBindBodyWith(&bodyMap, binding.JSON); err == nil {
+		if projectId, ok := bodyMap["projectId"]; ok {
+			if projectIdInt, ok := projectId.(float64); ok && int(projectIdInt) > 0 {
+				searchInfo.ClassId = int(projectIdInt)
+			}
+		}
 	}
 	if searchInfo.Page <= 0 {
 		searchInfo.Page = 1

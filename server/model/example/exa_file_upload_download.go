@@ -7,14 +7,16 @@ import (
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"gorm.io/gorm"
 )
 
 type ExaFileUploadAndDownload struct {
 	global.GVA_MODEL
-	Name     string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                // 文件名
-	ClassId  int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
-	Url      string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
-	FileType string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
+	Name      string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                // 文件名
+	ClassId   int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
+	ProjectId int    `json:"projectId" form:"projectId" gorm:"-"`                                            // 项目ID（对外API字段，值等于ClassId，不存数据库）
+	Url       string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
+	FileType  string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
 	Key        string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                        // 编号
 	Etag       string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                                 // 文件ETag
 	PublicRead bool   `json:"publicRead" form:"publicRead" gorm:"column:public_read;default:false;comment:是否允许公开读"` // 是否允许公开读
@@ -159,9 +161,6 @@ type ImageDimensions struct {
 // BizMetadata 存储业务相关的自定义信息
 // 注意：用户信息（UserID, Username）已提升为 ExaFileUploadAndDownload 的一级字段
 type BizMetadata struct {
-	// 项目ID - 关联的项目标识
-	ProjectID string `json:"projectId" form:"projectId"`
-
 	// 自定义标签 - 用户或业务系统定义的标签
 	Tags []string `json:"tags" form:"tags"`
 
@@ -188,6 +187,12 @@ const (
 
 func (ExaFileUploadAndDownload) TableName() string {
 	return "exa_file_upload_and_downloads"
+}
+
+// AfterFind GORM hook: 自动填充 ProjectId = ClassId
+func (f *ExaFileUploadAndDownload) AfterFind(tx *gorm.DB) error {
+	f.ProjectId = f.ClassId
+	return nil
 }
 
 // FileUploadOptions 文件上传选项
