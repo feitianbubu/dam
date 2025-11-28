@@ -738,6 +738,11 @@ func (e *FileUploadAndDownloadService) GetPresignedURL(file *example.ExaFileUplo
 		return file.Url
 	}
 
+	// todo 临时兼容 旧minio数据 无旧数据后可删除
+	if strings.HasPrefix(file.Url, "http://14.103.224.244:19000") {
+		return file.Url
+	}
+
 	oss := upload.NewOss()
 
 	// 检查是否实现了预签名URL接口
