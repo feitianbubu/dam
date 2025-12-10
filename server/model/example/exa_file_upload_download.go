@@ -12,19 +12,19 @@ import (
 
 type ExaFileUploadAndDownload struct {
 	global.GVA_MODEL
-	Name      string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                // 文件名
-	ClassId   int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"` // 分类id
-	ProjectId int    `json:"projectId" form:"projectId" gorm:"-"`                                            // 项目ID（对外API字段，值等于ClassId，不存数据库）
-	Url       string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                  // 文件地址
-	FileType  string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                  // 文件类型
-	Key        string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                        // 编号
-	Etag       string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                                 // 文件ETag
+	Name       string `json:"name" form:"name" gorm:"column:name;comment:文件名"`                                          // 文件名
+	ClassId    int    `json:"classId" form:"classId" gorm:"default:0;type:int;column:class_id;comment:分类id;"`            // 分类id
+	ProjectId  int    `json:"projectId" form:"projectId" gorm:"-"`                                                         // 项目ID（对外API字段，值等于ClassId，不存数据库）
+	Url        string `json:"url" form:"url" gorm:"column:url;comment:文件地址"`                                           // 文件地址
+	FileType   string `json:"fileType" form:"fileType" gorm:"column:file_type;comment:文件类型"`                           // 文件类型
+	Key        string `json:"key" form:"key" gorm:"column:key;comment:编号"`                                               // 编号
+	Etag       string `json:"etag" form:"etag" gorm:"column:etag;comment:文件ETag"`                                        // 文件ETag
 	PublicRead bool   `json:"publicRead" form:"publicRead" gorm:"column:public_read;default:false;comment:是否允许公开读"` // 是否允许公开读
 
 	// 用户信息 - 一级字段，便于查询和索引
-	UserID       uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`          // 上传用户ID
-	Username     string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"`       // 上传用户名
-	UpdateUserID uint   `json:"updateUserId" gorm:"column:update_user_id;comment:最后修改人ID"`              // 最后修改人ID
+	UserID       uint   `json:"userId" gorm:"column:user_id;index:idx_user_id;comment:上传用户ID"`     // 上传用户ID
+	Username     string `json:"username" gorm:"column:username;index:idx_username;comment:上传用户名"` // 上传用户名
+	UpdateUserID uint   `json:"updateUserId" gorm:"column:update_user_id;comment:最后修改人ID"`        // 最后修改人ID
 
 	// 文件元数据 - 只存储纯文件理解结果
 	Metadata FileMetadata `json:"metadata" form:"metadata" gorm:"serializer:json;type:json;column:metadata;comment:文件元数据" swaggertype:"object"`
@@ -35,7 +35,7 @@ type ExaFileUploadAndDownload struct {
 	// 处理状态相关字段 - 独立管理
 	ProcessStatus     string     `json:"processStatus" gorm:"column:process_status;default:pending;comment:处理状态:pending,processing,completed,failed"`
 	ProcessedAt       *time.Time `json:"processedAt" gorm:"column:processed_at;comment:处理完成时间"`
-	ProcessError      string     `json:"processError" gorm:"column:process_error;comment:处理错误信息"`
+	ProcessError      string     `json:"processError" gorm:"type:varchar(1000);column:process_error;comment:处理错误信息"`
 	ProcessRetryCount int        `json:"processRetryCount" gorm:"column:process_retry_count;default:0;comment:重试次数"`
 
 	// 向量化服务集成（通用字段）

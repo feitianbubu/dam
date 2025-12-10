@@ -46,15 +46,18 @@ func (p *FileProcessorImpl) ProcessFile(fileID uint) error {
 	global.GVA_LOG.Info("找到文件，开始处理", zap.Uint64("fileID", uint64(fileID)), zap.String("fileName", file.Name))
 
 	// 更新状态为处理中
-	if err := p.UpdateProcessStatus(fileID, example.ProcessStatusProcessing, nil, ""); err != nil {
-		return err
-	}
+	//if err := p.UpdateProcessStatus(fileID, example.ProcessStatusProcessing, nil, ""); err != nil {
+	//	return err
+	//}
 
 	// 调用多模态API分析文件
 	metadata, err := p.understandingService.AnalyzeFile(file.Url, file.FileType)
 	if err != nil {
 		// 处理失败，更新状态
-		global.GVA_LOG.Error("文件分析失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
+		global.GVA_LOG.Warn("文件分析失败", zap.Uint64("fileID", uint64(fileID)), zap.Error(err))
+		if file.ProcessStatus == example.ProcessStatusCompleted {
+			return err
+		}
 		if err := p.UpdateProcessStatus(fileID, example.ProcessStatusFailed, nil, err.Error()); err != nil {
 			return err
 		}
