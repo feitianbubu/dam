@@ -17,6 +17,7 @@ type VectorSearchParams struct {
 
 // ExaFileSearchRequest 文件搜索请求，支持传统搜索和向量搜索
 type ExaFileSearchRequest struct {
+	Keyword  string   `json:"keyword" form:"keyword"`
 	ClassId  int      `json:"classId" form:"classId"`   // 分类ID（内部统一使用此字段）
 	Tags     []string `json:"tags" form:"tags"`         // 标签过滤，支持多个标签
 	UserId   uint     `json:"userId" form:"userId"`     // 用户ID过滤
